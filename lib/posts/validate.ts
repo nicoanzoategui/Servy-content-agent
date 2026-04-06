@@ -41,6 +41,7 @@ export function parsePostCreateBody(body: unknown): {
     service_category: string | null;
     scheduled_at: string | null;
     status?: PostStatus;
+    brief: string | null;
   };
 } | { ok: false; error: string } {
   if (!body || typeof body !== "object") {
@@ -87,6 +88,15 @@ export function parsePostCreateBody(body: unknown): {
     status = o.status as PostStatus;
   }
 
+  let brief: string | null = null;
+  if (o.brief === null || o.brief === undefined || o.brief === "") {
+    brief = null;
+  } else if (isString(o.brief)) {
+    brief = o.brief.trim() || null;
+  } else {
+    return { ok: false, error: "brief inválido" };
+  }
+
   return {
     ok: true,
     data: {
@@ -97,6 +107,7 @@ export function parsePostCreateBody(body: unknown): {
       service_category,
       scheduled_at,
       status,
+      brief,
     },
   };
 }
@@ -134,6 +145,7 @@ export function parsePostPatchBody(body: unknown): {
     "rejection_reason",
     "generation_attempts",
     "regeneration_feedback",
+    "brief",
   ]);
 
   const out: Record<string, unknown> = {};
@@ -168,6 +180,11 @@ export function parsePostPatchBody(body: unknown): {
   if (out.video_brief !== undefined && out.video_brief !== null) {
     if (!isString(out.video_brief)) {
       return { ok: false, error: "video_brief debe ser string o null" };
+    }
+  }
+  if (out.brief !== undefined && out.brief !== null) {
+    if (!isString(out.brief)) {
+      return { ok: false, error: "brief debe ser string o null" };
     }
   }
 

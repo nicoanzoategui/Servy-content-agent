@@ -89,6 +89,16 @@ export function PostDetailForm({ initialPost }: Props) {
       gallery[post.selected_image_index ?? 0] ?? gallery[0]
     : post.image_url;
 
+  const isReview = post.status === "review";
+  const hasGeneratedPreview =
+    Boolean((post.copy ?? "").trim()) ||
+    Boolean(thumb) ||
+    Boolean((post.video_brief ?? "").trim());
+  const previewImageClass =
+    post.format === "story" || post.format === "reel" ?
+      "relative aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
+    : "relative aspect-square w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100";
+
   async function selectVariant(index: number) {
     setPickingImage(true);
     setMessage(null);
@@ -232,6 +242,7 @@ export function PostDetailForm({ initialPost }: Props) {
           copy: post.copy,
           hashtags: post.hashtags ?? [],
           cta_text: post.cta_text,
+          brief: post.brief?.trim() || null,
           video_brief:
             post.format === "reel" ?
               post.video_brief?.trim() || null
@@ -277,7 +288,108 @@ export function PostDetailForm({ initialPost }: Props) {
         ← Volver al kanban
       </Link>
 
-      <h1 className="mt-4 text-2xl font-bold text-zinc-900">Editar post</h1>
+      <h1 className="mt-4 text-2xl font-bold text-zinc-900">
+        {isReview ? "Revisar post" : "Editar post"}
+      </h1>
+      {isReview ? (
+        <p className="mt-1 max-w-2xl text-sm text-zinc-600">
+          Contenido generado para tu aprobación. Revisalo acá y más abajo podés editar,
+          regenerar con IA o aprobar y publicar.
+        </p>
+      ) : null}
+
+      {isReview ? (
+        <section
+          className="mt-6 rounded-xl border-2 border-emerald-200 bg-gradient-to-b from-emerald-50/70 to-white p-5 shadow-sm"
+          aria-label="Vista previa para aprobación"
+        >
+          <h2 className="text-base font-semibold text-zinc-900">
+            Lo que se generó para publicar
+          </h2>
+          {!hasGeneratedPreview ? (
+            <p className="mt-2 text-sm text-amber-800">
+              Todavía no hay copy ni imagen en este post. Si acabás de moverlo a revisión,
+              generá contenido desde el kanban o revisá que la generación haya terminado.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,280px),1fr] lg:items-start">
+              {thumb ? (
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Imagen principal
+                  </span>
+                  <div className={`${previewImageClass} mt-2`}>
+                    <Image
+                      src={thumb}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 280px"
+                    />
+                  </div>
+                  {gallery.length > 1 ? (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Hay {gallery.length} variantes; podés elegir la principal más abajo.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-600">
+                  Sin imagen generada todavía.
+                </div>
+              )}
+              <div className="min-w-0 space-y-4">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Copy
+                  </span>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-900">
+                    {(post.copy ?? "").trim() || "—"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Hashtags
+                  </span>
+                  <p className="mt-1 text-sm text-emerald-900">
+                    {(post.hashtags ?? []).length > 0 ?
+                      (post.hashtags ?? []).map((h) => `#${h}`).join(" ")
+                    : "—"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    CTA
+                  </span>
+                  <p className="mt-1 text-sm text-zinc-800">
+                    {(post.cta_text ?? "").trim() || "—"}
+                  </p>
+                </div>
+                {(post.brief ?? "").trim() ? (
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      Brief que pediste
+                    </span>
+                    <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600">
+                      {post.brief}
+                    </p>
+                  </div>
+                ) : null}
+                {post.format === "reel" && (post.video_brief ?? "").trim() ? (
+                  <details className="rounded-lg border border-zinc-200 bg-white p-3">
+                    <summary className="cursor-pointer text-sm font-medium text-zinc-800">
+                      Guion / brief del reel
+                    </summary>
+                    <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-xs text-zinc-700">
+                      {post.video_brief}
+                    </p>
+                  </details>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <form onSubmit={save} className="mt-6 space-y-4">
         <label className="block">
@@ -374,6 +486,24 @@ export function PostDetailForm({ initialPost }: Props) {
                 service_category: e.target.value.trim() || null,
               })
             }
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-zinc-700">
+            Brief / contexto para la IA{" "}
+            <span className="font-normal text-zinc-400">(opcional)</span>
+          </span>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Indicaciones extra para el generador: tono específico, contexto de campaña, qué mostrar en la imagen, etc.
+          </p>
+          <textarea
+            className="mt-1 min-h-[80px] w-full rounded-md border border-zinc-200 px-3 py-2 text-sm"
+            value={post.brief ?? ""}
+            onChange={(e) =>
+              setPost({ ...post, brief: e.target.value || null })
+            }
+            placeholder="Ej.: Este post es el primero del feed. Mostrar frustración del usuario, no el servicio resuelto."
           />
         </label>
 

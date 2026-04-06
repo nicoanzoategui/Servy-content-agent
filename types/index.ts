@@ -174,6 +174,8 @@ export interface Post {
   image_urls: string[] | null;
   selected_image_index: number;
   video_brief: string | null;
+  /** Contexto libre del founder para guiar al generador (brief inicial). */
+  brief: string | null;
   meta_post_id: string | null;
   published_at: string | null;
   published_url: string | null;
@@ -196,6 +198,7 @@ export type PostInsert = Omit<
   | "selected_image_index"
   | "generation_attempts"
   | "regeneration_feedback"
+  | "brief"
 > & {
   id?: string;
   status?: PostStatus;
@@ -203,6 +206,7 @@ export type PostInsert = Omit<
   selected_image_index?: number;
   generation_attempts?: number;
   regeneration_feedback?: string | null;
+  brief?: string | null;
 };
 
 export type PostUpdate = Partial<Omit<Post, "id" | "created_at">>;

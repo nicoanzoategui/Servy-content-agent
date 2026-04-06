@@ -94,6 +94,7 @@ export function buildGeneratorSystemInstruction(args: {
       target: args.post.target,
       service_category: args.post.service_category,
       scheduled_at: args.post.scheduled_at,
+      brief: args.post.brief ?? null,
     },
     null,
     2,

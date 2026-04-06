@@ -63,6 +63,7 @@ export async function POST(request: Request) {
       target: parsed.data.target,
       service_category: parsed.data.service_category,
       scheduled_at: parsed.data.scheduled_at,
+      brief: parsed.data.brief,
       ...(parsed.data.status ? { status: parsed.data.status } : {}),
     };
 
