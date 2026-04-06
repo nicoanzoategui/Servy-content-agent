@@ -1,3 +1,4 @@
+import { GoogleGenerativeAIFetchError } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -16,6 +17,25 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const ALLOWED_FROM: Post["status"][] = ["todo", "failed", "generating"];
+
+function formatGenerateError(e: unknown): { message: string; status: number; hint?: string } {
+  if (e instanceof GoogleGenerativeAIFetchError) {
+    const details =
+      e.errorDetails?.length ?
+        ` ${JSON.stringify(e.errorDetails)}`
+      : "";
+    const message = `${e.message}${details}`;
+    const status =
+      typeof e.status === "number" && e.status >= 400 && e.status < 600 ? e.status : 502;
+    const hint =
+      e.status === 403 ?
+        "Clave o permisos: en Vercel → Environment Variables verificá GOOGLE_AI_API_KEY (Production) y que sea una API key válida de Google AI Studio / Gemini API."
+      : undefined;
+    return { message, status, hint };
+  }
+  const message = e instanceof Error ? e.message : String(e);
+  return { message, status: 502 };
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -204,9 +224,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ post: saved });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Error desconocido";
+    const { message, status, hint } = formatGenerateError(e);
     console.error("agent/generate", e);
-    await markFailed(msg);
-    return NextResponse.json({ error: msg }, { status: 502 });
+    await markFailed(message);
+    return NextResponse.json(
+      hint ? { error: message, hint } : { error: message },
+      { status },
+    );
   }
 }

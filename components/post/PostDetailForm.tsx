@@ -196,7 +196,12 @@ export function PostDetailForm({ initialPost }: Props) {
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "No se pudo regenerar");
+      if (!res.ok) {
+        const msg =
+          [json.error, json.hint].filter(Boolean).join("\n\n") ||
+          "No se pudo regenerar";
+        throw new Error(msg);
+      }
       setPost(json.post as Post);
       setRegenerationDraft("");
       setMessage("Contenido regenerado — revisá variantes");

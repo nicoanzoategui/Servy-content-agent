@@ -108,7 +108,9 @@ export function Board() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json.error ?? "Error al generar");
+        const msg =
+          [json.error, json.hint].filter(Boolean).join("\n\n") || "Error al generar";
+        throw new Error(msg);
       }
       await refetch();
     } catch (e) {
