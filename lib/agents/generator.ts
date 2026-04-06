@@ -14,7 +14,7 @@ export type GeneratorAgentOutput = {
   video_brief: string | null;
 };
 
-const MODEL_ID = "gemini-2.0-flash";
+const MODEL_ID = "gemini-2.5-flash";
 
 function stripJsonFence(text: string): string {
   const t = text.trim();

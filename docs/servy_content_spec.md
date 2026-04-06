@@ -321,7 +321,7 @@ servy-content-agent/
 ### 6.1 Agente Analista
 
 **Archivo**: `lib/agents/analyst.ts`
-**Modelo**: `gemini-2.0-flash`
+**Modelo**: `gemini-2.5-flash`
 **Se dispara**: cron lunes 9am + 48hs post-publicación
 
 **Input que recibe**:
@@ -382,7 +382,7 @@ Respondé ÚNICAMENTE con un objeto JSON válido. Sin texto adicional, sin markd
 ### 6.2 Agente Generador
 
 **Archivo**: `lib/agents/generator.ts`
-**Modelo**: `gemini-2.0-flash` (copy) + `fal.ai/flux-dev` (imagen)
+**Modelo**: `gemini-2.5-flash` (copy) + `fal.ai/flux-dev` (imagen)
 **Se dispara**: cuando un post pasa a estado `generating`
 
 **Input que recibe**:

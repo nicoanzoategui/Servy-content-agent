@@ -11,7 +11,7 @@ import type {
   StrategyWeeklyPlanItem,
 } from "@/types";
 
-const MODEL_ID = "gemini-2.0-flash";
+const MODEL_ID = "gemini-2.5-flash";
 
 export type AnalystAgentOutput = {
   insights: StrategyInsight[];
