@@ -1,4 +1,3 @@
-import { GoogleGenerativeAIFetchError } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -18,23 +17,48 @@ export const maxDuration = 120;
 
 const ALLOWED_FROM: Post["status"][] = ["todo", "failed", "generating"];
 
+const GEMINI_KEY_HINT =
+  "En Vercel → Settings → Environment Variables: definí GOOGLE_AI_API_KEY para Production (la misma que en .env.local o una nueva en https://aistudio.google.com/apikey), guardá y Redeploy.";
+
+/**
+ * `instanceof` con el SDK de Gemini a veces falla en el bundle de Next.js;
+ * usamos forma del error + heurística para 403.
+ */
 function formatGenerateError(e: unknown): { message: string; status: number; hint?: string } {
-  if (e instanceof GoogleGenerativeAIFetchError) {
-    const details =
-      e.errorDetails?.length ?
-        ` ${JSON.stringify(e.errorDetails)}`
-      : "";
-    const message = `${e.message}${details}`;
-    const status =
-      typeof e.status === "number" && e.status >= 400 && e.status < 600 ? e.status : 502;
-    const hint =
-      e.status === 403 ?
-        "Clave o permisos: en Vercel → Environment Variables verificá GOOGLE_AI_API_KEY (Production) y que sea una API key válida de Google AI Studio / Gemini API."
-      : undefined;
-    return { message, status, hint };
+  if (typeof e === "object" && e !== null) {
+    const o = e as {
+      status?: unknown;
+      message?: unknown;
+      errorDetails?: unknown;
+    };
+    const st = o.status;
+    const msg =
+      typeof o.message === "string" ? o.message : e instanceof Error ? e.message : String(e);
+
+    if (typeof st === "number" && st >= 400 && st < 600) {
+      let details = "";
+      if (Array.isArray(o.errorDetails) && o.errorDetails.length > 0) {
+        details = ` ${JSON.stringify(o.errorDetails)}`;
+      }
+      return {
+        message: `${msg}${details}`,
+        status: st,
+        hint: st === 403 ? GEMINI_KEY_HINT : undefined,
+      };
+    }
   }
+
   const message = e instanceof Error ? e.message : String(e);
-  return { message, status: 502 };
+  const looksLikeGemini403 =
+    message === "Forbidden" ||
+    /\[\s*403\s+Forbidden\s*\]/i.test(message) ||
+    /generativelanguage\.googleapis\.com[^\n]*403/i.test(message);
+
+  return {
+    message,
+    status: looksLikeGemini403 ? 403 : 502,
+    hint: looksLikeGemini403 ? GEMINI_KEY_HINT : undefined,
+  };
 }
 
 export async function POST(request: Request) {
