@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AgentLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  agent       String
+  event       String
+  level       String   @default("info")
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  details     Json?
+  durationMs  Int?     @map("duration_ms")
+  tokensUsed  Int?     @map("tokens_used")
+
+  @@map("agent_logs")
+}
+
+model PriceQuote {
+  id              String    @id @default(uuid()) @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  jobId           String?   @map("job_id") @db.Uuid
+  category        String    @default("general")
+  jobType         String    @default("standard") @map("job_type")
+  zone            String    @default("amba")
+  priceChosen     Decimal?  @map("price_chosen") @db.Decimal(18, 4)
+  servyCommission Decimal?  @default(0.12) @map("servy_commission") @db.Decimal(18, 6)
+  providerNet     Decimal?  @map("provider_net") @db.Decimal(18, 4)
+  providerId      String?   @map("provider_id") @db.Uuid
+  acceptedAt      DateTime? @map("accepted_at")
+
+  @@map("price_quotes")
+}
+
+model DemandForecast {
+  id                 String   @id @default(uuid()) @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+  forecastForWeek    DateTime @map("forecast_for_week") @db.Date
+  category           String
+  zone               String
+  predictedRequests  Int?     @map("predicted_requests")
+  confidence         Decimal? @db.Decimal(18, 6)
+  availableProviders Int?     @map("available_providers")
+  coverageGap        Int?     @map("coverage_gap")
+  recommendation     String?
+  geminiReasoning    String?  @map("gemini_reasoning")
+
+  @@map("demand_forecasts")
+}
+
+model ExpansionOpportunity {
+  id                    String   @id @default(uuid()) @db.Uuid
+  detectedAt            DateTime @default(now()) @map("detected_at")
+  zone                  String
+  category              String
+  uncoveredRequests30d  Int?     @map("uncovered_requests_30d")
+  estimatedRevenueArs   Decimal? @map("estimated_revenue_ars") @db.Decimal(18, 4)
+  priority              String?
+  status                String?  @default("detected")
+
+  @@map("expansion_opportunities")
+}
+
+model FinanceTransaction {
+  id                  String   @id @default(uuid()) @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+  jobId               String?  @map("job_id") @db.Uuid
+  providerId          String?  @map("provider_id") @db.Uuid
+  category            String
+  zone                String
+  jobType             String   @map("job_type")
+  grossAmountArs      Decimal  @map("gross_amount_ars") @db.Decimal(18, 4)
+  servyCommissionRate Decimal  @map("servy_commission_rate") @db.Decimal(18, 6)
+  servyRevenueArs     Decimal  @map("servy_revenue_ars") @db.Decimal(18, 4)
+  providerNetArs      Decimal  @map("provider_net_ars") @db.Decimal(18, 4)
+  mpFeeArs            Decimal  @default(0) @map("mp_fee_ars") @db.Decimal(18, 4)
+  netRevenueArs       Decimal  @map("net_revenue_ars") @db.Decimal(18, 4)
+  paymentStatus       String   @default("pending") @map("payment_status")
+  mpPaymentId         String?  @map("mp_payment_id")
+  simulated           Boolean  @default(true)
+  periodMonth         String   @map("period_month")
+  periodWeek          String   @map("period_week")
+
+  @@map("finance_transactions")
+}
+
+model FinanceSnapshot {
+  id                         String   @id @default(uuid()) @db.Uuid
+  createdAt                  DateTime @default(now()) @map("created_at")
+  periodType                 String   @map("period_type")
+  periodKey                  String   @map("period_key")
+  grossRevenueArs            Decimal  @default(0) @map("gross_revenue_ars") @db.Decimal(18, 4)
+  servyRevenueArs            Decimal  @default(0) @map("servy_revenue_ars") @db.Decimal(18, 4)
+  mpFeesArs                  Decimal  @default(0) @map("mp_fees_ars") @db.Decimal(18, 4)
+  netRevenueArs              Decimal  @default(0) @map("net_revenue_ars") @db.Decimal(18, 4)
+  totalJobs                  Int      @default(0) @map("total_jobs")
+  completedJobs              Int      @default(0) @map("completed_jobs")
+  cancelledJobs              Int      @default(0) @map("cancelled_jobs")
+  avgTicketArs               Decimal? @map("avg_ticket_ars") @db.Decimal(18, 4)
+  avgCommissionRate          Decimal? @map("avg_commission_rate") @db.Decimal(18, 6)
+  revenuePerJobArs           Decimal? @map("revenue_per_job_ars") @db.Decimal(18, 4)
+  byCategory                 Json     @default("{}") @map("by_category")
+  byZone                     Json     @default("{}") @map("by_zone")
+  activeProviders            Int      @default(0) @map("active_providers")
+  revenuePerActiveProviderArs Decimal? @map("revenue_per_active_provider_ars") @db.Decimal(18, 4)
+  simulated                  Boolean  @default(true)
+
+  @@unique([periodType, periodKey], map: "finance_snapshots_period_uidx")
+  @@map("finance_snapshots")
+}
+
+model FinanceProjection {
+  id                   String   @id @default(uuid()) @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at")
+  projectionForMonth   String   @map("projection_for_month")
+  scenarioBaseArs      Decimal? @map("scenario_base_ars") @db.Decimal(18, 4)
+  scenarioOptimistArs Decimal? @map("scenario_optimist_ars") @db.Decimal(18, 4)
+  scenarioPessimistArs Decimal? @map("scenario_pessimist_ars") @db.Decimal(18, 4)
+  assumedJobGrowthRate Decimal? @map("assumed_job_growth_rate") @db.Decimal(18, 6)
+  assumedAvgTicketArs  Decimal? @map("assumed_avg_ticket_ars") @db.Decimal(18, 4)
+  assumedCommissionRate Decimal? @map("assumed_commission_rate") @db.Decimal(18, 6)
+  assumedMpFeeRate     Decimal? @default(0.0299) @map("assumed_mp_fee_rate") @db.Decimal(18, 6)
+  geminiAnalysis       String?  @map("gemini_analysis")
+  confidence           Decimal? @db.Decimal(18, 6)
+  keyRisks             Json     @default("[]") @map("key_risks")
+  keyOpportunities     Json     @default("[]") @map("key_opportunities")
+
+  @@map("finance_projections")
+}
+
+model FinanceAlert {
+  id             String    @id @default(uuid()) @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  alertType      String    @map("alert_type")
+  severity       String
+  title          String
+  description    String
+  metricValue    Decimal?  @map("metric_value") @db.Decimal(18, 6)
+  thresholdValue Decimal?  @map("threshold_value") @db.Decimal(18, 6)
+  periodKey      String?   @map("period_key")
+  resolved       Boolean   @default(false)
+  resolvedAt     DateTime? @map("resolved_at")
+
+  @@map("finance_alerts")
+}
+
+model MpReconciliation {
+  id                     String   @id @default(uuid()) @db.Uuid
+  createdAt              DateTime @default(now()) @map("created_at")
+  periodDate             DateTime @map("period_date") @db.Date
+  mpReportedAmountArs    Decimal? @map("mp_reported_amount_ars") @db.Decimal(18, 4)
+  internalExpectedArs    Decimal? @map("internal_expected_ars") @db.Decimal(18, 4)
+  differenceArs          Decimal? @map("difference_ars") @db.Decimal(18, 4)
+  differencePct          Decimal? @map("difference_pct") @db.Decimal(18, 6)
+  mpTransactionCount     Int?     @map("mp_transaction_count")
+  internalTransactionCount Int?   @map("internal_transaction_count")
+  status                 String   @default("pending")
+  notes                  String?
+  simulated              Boolean  @default(true)
+
+  @@map("mp_reconciliation")
+}
