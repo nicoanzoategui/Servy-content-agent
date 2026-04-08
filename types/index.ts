@@ -122,7 +122,7 @@ export type PostObjective =
   | "conversion"
   | "retention";
 
-export type PostTarget = "user" | "provider" | "both";
+export type PostTarget = "user" | "provider" | "both" | "founder";
 
 export type PostStatus =
   | "todo"

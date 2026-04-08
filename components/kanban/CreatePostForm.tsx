@@ -171,6 +171,7 @@ export function CreatePostForm({ onCreate }: Props) {
           >
             <option value="user">Usuario</option>
             <option value="provider">Proveedor</option>
+            <option value="founder">Founder</option>
             <option value="both">Ambos</option>
           </select>
         </label>

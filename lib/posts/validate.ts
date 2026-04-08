@@ -20,7 +20,7 @@ const OBJECTIVES: PostObjective[] = [
   "conversion",
   "retention",
 ];
-const TARGETS: PostTarget[] = ["user", "provider", "both"];
+const TARGETS: PostTarget[] = ["user", "provider", "both", "founder"];
 const STATUSES: PostStatus[] = [
   "todo",
   "generating",

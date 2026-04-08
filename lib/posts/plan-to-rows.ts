@@ -19,7 +19,7 @@ const OBJECTIVES: PostObjective[] = [
   "conversion",
   "retention",
 ];
-const TARGETS: PostTarget[] = ["user", "provider", "both"];
+const TARGETS: PostTarget[] = ["user", "provider", "both", "founder"];
 
 function pickFormat(v: unknown): PostFormat {
   if (typeof v === "string" && FORMATS.includes(v as PostFormat)) {

@@ -21,6 +21,17 @@ type Props = {
   initialPost: Post;
 };
 
+function isFounderShareTarget(target: Post["target"]): boolean {
+  return target === "founder" || target === "both";
+}
+
+/** Texto listo para X: máx. 280 caracteres (incluye "..." si se trunca). */
+function copyForTwitter(copy: string | null): string {
+  const t = (copy ?? "").trim();
+  if (t.length <= 280) return t;
+  return `${t.slice(0, 277)}...`;
+}
+
 function normalizePost(p: Post): Post {
   return {
     ...p,
@@ -49,6 +60,7 @@ export function PostDetailForm({ initialPost }: Props) {
     () => initialPost.regeneration_feedback ?? "",
   );
   const [regenerateBusy, setRegenerateBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
 
   useEffect(() => {
     setPost(normalizePost(initialPost));
@@ -248,6 +260,57 @@ export function PostDetailForm({ initialPost }: Props) {
     }
   }
 
+  async function copyToTwitter() {
+    setMessage(null);
+    try {
+      await navigator.clipboard.writeText(copyForTwitter(post.copy));
+      setMessage("Copiado para Twitter");
+    } catch {
+      setMessage("No se pudo copiar al portapapeles");
+    }
+  }
+
+  async function copyToLinkedIn() {
+    setMessage(null);
+    try {
+      await navigator.clipboard.writeText((post.copy ?? "").trim());
+      setMessage("Copiado para LinkedIn");
+    } catch {
+      setMessage("No se pudo copiar al portapapeles");
+    }
+  }
+
+  async function downloadSelectedImage() {
+    if (!thumb) return;
+    setDownloadBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(thumb);
+      if (!res.ok) throw new Error("No se pudo descargar la imagen");
+      const blob = await res.blob();
+      const type = blob.type || "";
+      const ext =
+        type.includes("png") ? "png"
+        : type.includes("jpeg") || type.includes("jpg") ? "jpg"
+        : type.includes("webp") ? "webp"
+        : "bin";
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `servy-post-${post.id}.${ext}`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+      setMessage("Imagen descargada");
+    } catch (er) {
+      setMessage(er instanceof Error ? er.message : "Error al descargar");
+    } finally {
+      setDownloadBusy(false);
+    }
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
@@ -425,6 +488,36 @@ export function PostDetailForm({ initialPost }: Props) {
         </section>
       ) : null}
 
+      {isFounderShareTarget(post.target) ? (
+        <div
+          className="mt-6 flex flex-wrap gap-2"
+          aria-label="Compartir (founder)"
+        >
+          <button
+            type="button"
+            onClick={() => void copyToTwitter()}
+            className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            Copiar para Twitter
+          </button>
+          <button
+            type="button"
+            onClick={() => void copyToLinkedIn()}
+            className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            Copiar para LinkedIn
+          </button>
+          <button
+            type="button"
+            disabled={!thumb || downloadBusy}
+            onClick={() => void downloadSelectedImage()}
+            className="rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {downloadBusy ? "Descargando…" : "Descargar imagen"}
+          </button>
+        </div>
+      ) : null}
+
       <form onSubmit={save} className="mt-6 space-y-4">
         <label className="block">
           <span className="text-sm font-medium text-zinc-700">Título</span>
@@ -486,6 +579,7 @@ export function PostDetailForm({ initialPost }: Props) {
             >
               <option value="user">Usuario</option>
               <option value="provider">Proveedor</option>
+              <option value="founder">Founder</option>
               <option value="both">Ambos</option>
             </select>
           </label>
@@ -789,7 +883,10 @@ export function PostDetailForm({ initialPost }: Props) {
               message === "Imagen principal actualizada" ||
               message === "Métricas actualizadas" ||
               message === "Aprobado y publicado desde el email." ||
-              message === "Post rechazado desde el email." ?
+              message === "Post rechazado desde el email." ||
+              message === "Copiado para Twitter" ||
+              message === "Copiado para LinkedIn" ||
+              message === "Imagen descargada" ?
                 "text-emerald-700"
               : "text-red-600"
             }`}
