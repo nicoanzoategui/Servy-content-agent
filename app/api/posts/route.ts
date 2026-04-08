@@ -61,9 +61,16 @@ export async function POST(request: Request) {
       format: parsed.data.format,
       objective: parsed.data.objective,
       target: parsed.data.target,
-      service_category: parsed.data.service_category,
+      service_category:
+        parsed.data.format === "reel" || parsed.data.format === "story" ?
+          parsed.data.video_category
+        : parsed.data.service_category,
       scheduled_at: parsed.data.scheduled_at,
       brief: parsed.data.brief,
+      video_content_type: parsed.data.video_content_type,
+      video_tone: parsed.data.video_tone,
+      video_duration_seconds: parsed.data.video_duration_seconds,
+      video_category: parsed.data.video_category,
       ...(parsed.data.status ? { status: parsed.data.status } : {}),
     };
 

@@ -138,7 +138,14 @@ export type ServiceCategory =
   | "cerrajeria"
   | "gas"
   | "aires"
+  | "general"
   | null;
+
+export type VideoContentType = "provider_working" | "user_receiving" | "both";
+
+export type VideoTone = "urgent" | "aspirational" | "educational";
+
+export type VideoDurationTarget = 15 | 30 | 60;
 
 export interface PostMetrics {
   reach?: number;
@@ -186,6 +193,15 @@ export interface Post {
   generation_attempts: number;
   /** Contexto del founder para la próxima regeneración (Fase 5). */
   regeneration_feedback: string | null;
+
+  video_url: string | null;
+  /** Duración del clip generado en fal (p. ej. 5 o 10). */
+  video_duration: number | null;
+  video_prompt: string | null;
+  video_content_type: VideoContentType | null;
+  video_tone: VideoTone | null;
+  video_category: string | null;
+  video_duration_seconds: VideoDurationTarget | null;
 }
 
 export type PostInsert = Omit<
@@ -199,6 +215,13 @@ export type PostInsert = Omit<
   | "generation_attempts"
   | "regeneration_feedback"
   | "brief"
+  | "video_url"
+  | "video_duration"
+  | "video_prompt"
+  | "video_content_type"
+  | "video_tone"
+  | "video_category"
+  | "video_duration_seconds"
 > & {
   id?: string;
   status?: PostStatus;
@@ -207,6 +230,13 @@ export type PostInsert = Omit<
   generation_attempts?: number;
   regeneration_feedback?: string | null;
   brief?: string | null;
+  video_url?: string | null;
+  video_duration?: number | null;
+  video_prompt?: string | null;
+  video_content_type?: VideoContentType | null;
+  video_tone?: VideoTone | null;
+  video_category?: string | null;
+  video_duration_seconds?: VideoDurationTarget | null;
 };
 
 export type PostUpdate = Partial<Omit<Post, "id" | "created_at">>;

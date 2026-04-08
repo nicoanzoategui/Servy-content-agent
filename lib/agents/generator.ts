@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { buildGeneratorSystemInstruction } from "@/lib/agents/prompts/generator";
+import { VIDEO_PROMPT_SYSTEM } from "@/lib/agents/prompts/video-generator";
 import type { Post, PostFormat, Strategy, StrategyCurrentRules } from "@/types";
 
 export type GeneratorAgentOutput = {
@@ -120,9 +121,10 @@ function parseGeneratorOutput(
   };
 }
 
-async function callGemini(
+async function callGeminiJson(
   systemInstruction: string,
   userTurn: string,
+  temperature = 0.7,
 ): Promise<string> {
   const key = process.env.GOOGLE_AI_API_KEY;
   if (!key) {
@@ -134,7 +136,7 @@ async function callGemini(
     model: MODEL_ID,
     systemInstruction,
     generationConfig: {
-      temperature: 0.7,
+      temperature,
       maxOutputTokens: 8192,
       responseMimeType: "application/json",
     },
@@ -146,6 +148,13 @@ async function callGemini(
     throw new Error("Gemini devolvió respuesta vacía");
   }
   return text;
+}
+
+async function callGemini(
+  systemInstruction: string,
+  userTurn: string,
+): Promise<string> {
+  return callGeminiJson(systemInstruction, userTurn, 0.7);
 }
 
 export type RunGeneratorInput = {
@@ -215,4 +224,88 @@ export async function runContentGenerator(
   throw lastErr instanceof Error ?
       lastErr
     : new Error("No se pudo parsear la salida del generador");
+}
+
+// ---------------------------------------------------------------------------
+// Video (reel / story) — Kling v1.6, sin alterar el flujo de imágenes arriba
+// ---------------------------------------------------------------------------
+
+export type VideoPromptAgentOutput = {
+  video_prompt: string;
+  negative_prompt: string;
+  suggested_caption: string;
+};
+
+function parseVideoPromptOutput(raw: string): VideoPromptAgentOutput {
+  const text = stripJsonFence(raw);
+  const data = JSON.parse(text) as Record<string, unknown>;
+  const video_prompt =
+    typeof data.video_prompt === "string" ? data.video_prompt.trim() : "";
+  const negative_prompt =
+    typeof data.negative_prompt === "string" ? data.negative_prompt.trim() : "";
+  const suggested_caption =
+    typeof data.suggested_caption === "string" ?
+      data.suggested_caption.trim().slice(0, 150)
+    : "";
+  if (!video_prompt) {
+    throw new Error("video_prompt vacío");
+  }
+  return {
+    video_prompt: video_prompt.slice(0, 8000),
+    negative_prompt:
+      negative_prompt ||
+      "text, watermark, logo, subtitle, ugly, deformed, blurry, low quality",
+    suggested_caption:
+      suggested_caption || "Servy — técnicos del hogar en Argentina",
+  };
+}
+
+export type RunVideoPromptInput = {
+  post: Post;
+  regenerationFeedback?: string | null;
+};
+
+export { isVideoPostFormat, postHasVideoCreationFields } from "@/lib/posts/video-eligibility";
+
+export async function runVideoPromptGenerator(
+  input: RunVideoPromptInput,
+): Promise<VideoPromptAgentOutput> {
+  const { post, regenerationFeedback } = input;
+  const payload = {
+    topic: (post.brief ?? "").trim(),
+    format: post.format,
+    contentType: post.video_content_type,
+    durationSeconds: post.video_duration_seconds,
+    serviceCategory: post.video_category,
+    tone: post.video_tone,
+    title: post.title,
+  };
+
+  const feedbackBlock =
+    regenerationFeedback?.trim() ?
+      `\nFeedback del founder para esta iteración: ${regenerationFeedback.trim()}\n`
+    : "";
+
+  const userTurns = [
+    `Datos del post (JSON):\n${JSON.stringify(payload, null, 2)}\n${feedbackBlock}\nGenerá el objeto JSON con video_prompt, negative_prompt y suggested_caption según las reglas.`,
+    `Reintentá: devolvé solo JSON válido con video_prompt, negative_prompt, suggested_caption.${feedbackBlock}`,
+    `Último intento: JSON estricto, sin markdown.${feedbackBlock}`,
+  ];
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const raw = await callGeminiJson(
+        VIDEO_PROMPT_SYSTEM,
+        userTurns[attempt] ?? userTurns[userTurns.length - 1]!,
+        0.55,
+      );
+      return parseVideoPromptOutput(raw);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ?
+      lastErr
+    : new Error("No se pudo generar el prompt de video");
 }

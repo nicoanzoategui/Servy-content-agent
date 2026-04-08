@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { VideoPlayer } from "@/components/post/VideoPlayer";
+import {
+  isVideoPostFormat,
+  postHasVideoCreationFields,
+} from "@/lib/posts/video-eligibility";
 import type { Post, PostStatus } from "@/types";
 
 const appBase =
@@ -16,10 +21,23 @@ type Props = {
   initialPost: Post;
 };
 
+function normalizePost(p: Post): Post {
+  return {
+    ...p,
+    video_url: p.video_url ?? null,
+    video_duration: p.video_duration ?? null,
+    video_prompt: p.video_prompt ?? null,
+    video_content_type: p.video_content_type ?? null,
+    video_tone: p.video_tone ?? null,
+    video_category: p.video_category ?? null,
+    video_duration_seconds: p.video_duration_seconds ?? null,
+  };
+}
+
 export function PostDetailForm({ initialPost }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [post, setPost] = useState(initialPost);
+  const [post, setPost] = useState(() => normalizePost(initialPost));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -33,7 +51,7 @@ export function PostDetailForm({ initialPost }: Props) {
   const [regenerateBusy, setRegenerateBusy] = useState(false);
 
   useEffect(() => {
-    setPost(initialPost);
+    setPost(normalizePost(initialPost));
     // Sincronizar solo cuando el servidor trae nueva versión (p. ej. tras acción por email).
   }, [initialPost.id, initialPost.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps -- evitar referencia inestable de initialPost
 
@@ -93,7 +111,8 @@ export function PostDetailForm({ initialPost }: Props) {
   const hasGeneratedPreview =
     Boolean((post.copy ?? "").trim()) ||
     Boolean(thumb) ||
-    Boolean((post.video_brief ?? "").trim());
+    Boolean((post.video_brief ?? "").trim()) ||
+    Boolean((post.video_url ?? "").trim());
   const previewImageClass =
     post.format === "story" || post.format === "reel" ?
       "relative aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
@@ -195,16 +214,22 @@ export function PostDetailForm({ initialPost }: Props) {
   async function regenerateWithAI() {
     setRegenerateBusy(true);
     setMessage(null);
+    const useVideoEndpoint =
+      isVideoPostFormat(post.format) &&
+      (postHasVideoCreationFields(post) || Boolean((post.video_url ?? "").trim()));
     try {
-      const res = await fetch("/api/agent/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          post_id: post.id,
-          regenerate: true,
-          regeneration_feedback: regenerationDraft.trim() || undefined,
-        }),
-      });
+      const res = await fetch(
+        useVideoEndpoint ? "/api/agent/generate-video" : "/api/agent/generate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            post_id: post.id,
+            regenerate: true,
+            regeneration_feedback: regenerationDraft.trim() || undefined,
+          }),
+        },
+      );
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg =
@@ -313,7 +338,16 @@ export function PostDetailForm({ initialPost }: Props) {
             </p>
           ) : (
             <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,280px),1fr] lg:items-start">
-              {thumb ? (
+              {(post.video_url ?? "").trim() ? (
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Video
+                  </span>
+                  <div className="mt-2">
+                    <VideoPlayer src={post.video_url} />
+                  </div>
+                </div>
+              ) : thumb ? (
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Imagen principal
@@ -335,7 +369,7 @@ export function PostDetailForm({ initialPost }: Props) {
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-600">
-                  Sin imagen generada todavía.
+                  Sin imagen ni video generado todavía.
                 </div>
               )}
               <div className="min-w-0 space-y-4">

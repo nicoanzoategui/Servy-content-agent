@@ -25,10 +25,12 @@ export async function notifyPostReadyForReview(post: Post): Promise<void> {
       secret ? emailActionHref(post.id, "approve", secret) : null;
     const rejectUrl =
       secret ? emailActionHref(post.id, "reject", secret) : null;
+    const hasVideo = Boolean(post.video_url?.trim());
     const thumb =
-      post.image_url ??
-      post.image_urls?.[post.selected_image_index ?? 0] ??
-      "";
+      hasVideo ? ""
+      : post.image_url ??
+        post.image_urls?.[post.selected_image_index ?? 0] ??
+        "";
 
     const actionRow =
       approveUrl && rejectUrl ?
@@ -47,6 +49,7 @@ export async function notifyPostReadyForReview(post: Post): Promise<void> {
       html: `
       <p>Nuevo contenido listo para aprobación.</p>
       <p><strong>${escapeHtml(post.title)}</strong></p>
+      ${hasVideo ? `<p style="font-size:14px">Video generado — <a href="${escapeHtml(url)}">ver en el panel</a></p>` : ""}
       ${thumb ? `<p><img src="${escapeHtml(thumb)}" alt="" style="max-width:100%;border-radius:8px"/></p>` : ""}
       <pre style="white-space:pre-wrap;font-family:system-ui,sans-serif">${escapeHtml(post.copy ?? "")}</pre>
       ${actionRow}

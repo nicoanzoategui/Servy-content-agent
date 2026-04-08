@@ -34,3 +34,31 @@ export async function uploadRemoteJpeg(
   }
   return publicObjectUrl(supabaseUrl, args.path);
 }
+
+export async function uploadRemoteVideo(
+  supabase: SupabaseClient,
+  args: { remoteUrl: string; path: string },
+): Promise<string> {
+  const res = await fetch(args.remoteUrl);
+  if (!res.ok) {
+    throw new Error(`Descarga de video falló: ${res.status}`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+
+  const { error } = await supabase.storage
+    .from(POST_ASSETS_BUCKET)
+    .upload(args.path, buf, {
+      contentType: "video/mp4",
+      upsert: true,
+    });
+
+  if (error) {
+    throw new Error(`Upload de video a Storage falló: ${error.message}`);
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  }
+  return publicObjectUrl(supabaseUrl, args.path);
+}

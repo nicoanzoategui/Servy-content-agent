@@ -10,6 +10,10 @@ import {
 import { useMemo, useState } from "react";
 
 import { usePosts } from "@/hooks/usePosts";
+import {
+  isVideoPostFormat,
+  postHasVideoCreationFields,
+} from "@/lib/posts/video-eligibility";
 import { KANBAN_COLUMNS } from "@/lib/posts/status-config";
 import type { Post, PostStatus } from "@/types";
 
@@ -100,12 +104,20 @@ export function Board() {
 
   async function handleGeneratePost(id: string) {
     setGeneratingId(id);
+    const post = posts.find((p) => p.id === id);
+    const videoFlow =
+      post &&
+      isVideoPostFormat(post.format) &&
+      postHasVideoCreationFields(post);
     try {
-      const res = await fetch("/api/agent/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ post_id: id }),
-      });
+      const res = await fetch(
+        videoFlow ? "/api/agent/generate-video" : "/api/agent/generate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ post_id: id }),
+        },
+      );
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg =

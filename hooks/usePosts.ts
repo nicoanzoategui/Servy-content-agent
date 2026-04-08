@@ -12,6 +12,11 @@ type CreatePostInput = {
   service_category?: string | null;
   scheduled_at?: string | null;
   status?: PostStatus;
+  brief?: string | null;
+  video_content_type?: Post["video_content_type"];
+  video_tone?: Post["video_tone"];
+  video_duration_seconds?: Post["video_duration_seconds"];
+  video_category?: string | null;
 };
 
 export function usePosts() {

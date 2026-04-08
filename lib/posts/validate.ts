@@ -3,6 +3,9 @@ import type {
   PostObjective,
   PostStatus,
   PostTarget,
+  VideoContentType,
+  VideoDurationTarget,
+  VideoTone,
 } from "@/types";
 
 const FORMATS: PostFormat[] = [
@@ -27,6 +30,26 @@ const STATUSES: PostStatus[] = [
   "failed",
 ];
 
+const VIDEO_CONTENT_TYPES: VideoContentType[] = [
+  "provider_working",
+  "user_receiving",
+  "both",
+];
+const VIDEO_TONES: VideoTone[] = ["urgent", "aspirational", "educational"];
+const VIDEO_DURATION_TARGETS: VideoDurationTarget[] = [15, 30, 60];
+const VIDEO_CATEGORIES = new Set([
+  "plomeria",
+  "electricidad",
+  "gas",
+  "cerrajeria",
+  "aires",
+  "general",
+]);
+
+function isVideoFormat(f: PostFormat): boolean {
+  return f === "reel" || f === "story";
+}
+
 function isString(v: unknown): v is string {
   return typeof v === "string";
 }
@@ -42,6 +65,10 @@ export function parsePostCreateBody(body: unknown): {
     scheduled_at: string | null;
     status?: PostStatus;
     brief: string | null;
+    video_content_type: VideoContentType | null;
+    video_tone: VideoTone | null;
+    video_duration_seconds: VideoDurationTarget | null;
+    video_category: string | null;
   };
 } | { ok: false; error: string } {
   if (!body || typeof body !== "object") {
@@ -97,6 +124,98 @@ export function parsePostCreateBody(body: unknown): {
     return { ok: false, error: "brief inválido" };
   }
 
+  let video_content_type: VideoContentType | null = null;
+  if (o.video_content_type === null || o.video_content_type === undefined) {
+    video_content_type = null;
+  } else if (
+    isString(o.video_content_type) &&
+    VIDEO_CONTENT_TYPES.includes(o.video_content_type as VideoContentType)
+  ) {
+    video_content_type = o.video_content_type as VideoContentType;
+  } else if (o.video_content_type !== undefined) {
+    return { ok: false, error: "video_content_type inválido" };
+  }
+
+  let video_tone: VideoTone | null = null;
+  if (o.video_tone === null || o.video_tone === undefined) {
+    video_tone = null;
+  } else if (
+    isString(o.video_tone) &&
+    VIDEO_TONES.includes(o.video_tone as VideoTone)
+  ) {
+    video_tone = o.video_tone as VideoTone;
+  } else if (o.video_tone !== undefined) {
+    return { ok: false, error: "video_tone inválido" };
+  }
+
+  let video_duration_seconds: VideoDurationTarget | null = null;
+  if (o.video_duration_seconds === null || o.video_duration_seconds === undefined) {
+    video_duration_seconds = null;
+  } else if (
+    typeof o.video_duration_seconds === "number" &&
+    VIDEO_DURATION_TARGETS.includes(o.video_duration_seconds as VideoDurationTarget)
+  ) {
+    video_duration_seconds = o.video_duration_seconds as VideoDurationTarget;
+  } else if (typeof o.video_duration_seconds === "string") {
+    const n = Number(o.video_duration_seconds);
+    if (VIDEO_DURATION_TARGETS.includes(n as VideoDurationTarget)) {
+      video_duration_seconds = n as VideoDurationTarget;
+    } else {
+      return { ok: false, error: "video_duration_seconds inválido" };
+    }
+  } else if (o.video_duration_seconds !== undefined) {
+    return { ok: false, error: "video_duration_seconds inválido" };
+  }
+
+  let video_category: string | null = null;
+  if (o.video_category === null || o.video_category === undefined || o.video_category === "") {
+    video_category = null;
+  } else if (isString(o.video_category)) {
+    const c = o.video_category.trim().toLowerCase();
+    if (!VIDEO_CATEGORIES.has(c)) {
+      return { ok: false, error: "video_category inválido" };
+    }
+    video_category = c;
+  } else {
+    return { ok: false, error: "video_category inválido" };
+  }
+
+  const fmt = o.format as PostFormat;
+  if (isVideoFormat(fmt)) {
+    if (!brief || brief.length > 200) {
+      return {
+        ok: false,
+        error:
+          "Para reel/story el tema (brief) es obligatorio y debe tener hasta 200 caracteres",
+      };
+    }
+    if (!video_content_type || !video_tone || !video_duration_seconds || !video_category) {
+      return {
+        ok: false,
+        error:
+          "Para reel/story completá tipo de contenido, tono, duración y categoría de video",
+      };
+    }
+    if (fmt === "story" && video_duration_seconds !== 15) {
+      return {
+        ok: false,
+        error: "Story usa siempre 15 segundos de duración final",
+      };
+    }
+  } else {
+    if (
+      video_content_type !== null ||
+      video_tone !== null ||
+      video_duration_seconds !== null ||
+      video_category !== null
+    ) {
+      return {
+        ok: false,
+        error: "Los campos de video solo aplican a formatos reel o story",
+      };
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -108,6 +227,10 @@ export function parsePostCreateBody(body: unknown): {
       scheduled_at,
       status,
       brief,
+      video_content_type,
+      video_tone,
+      video_duration_seconds,
+      video_category,
     },
   };
 }
@@ -146,6 +269,13 @@ export function parsePostPatchBody(body: unknown): {
     "generation_attempts",
     "regeneration_feedback",
     "brief",
+    "video_url",
+    "video_duration",
+    "video_prompt",
+    "video_content_type",
+    "video_tone",
+    "video_category",
+    "video_duration_seconds",
   ]);
 
   const out: Record<string, unknown> = {};

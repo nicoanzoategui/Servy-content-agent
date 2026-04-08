@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import {
+  VideoForm,
+  defaultVideoFormValues,
+  type VideoFormValues,
+} from "@/components/post/VideoForm";
 import type { Post } from "@/types";
 
 type Props = {
@@ -12,8 +17,17 @@ type Props = {
     target: Post["target"];
     service_category: string | null;
     scheduled_at: string | null;
+    brief: string | null;
+    video_content_type: Post["video_content_type"];
+    video_tone: Post["video_tone"];
+    video_duration_seconds: Post["video_duration_seconds"];
+    video_category: string | null;
   }) => Promise<void>;
 };
+
+function isVideoFormat(f: Post["format"]): boolean {
+  return f === "reel" || f === "story";
+}
 
 export function CreatePostForm({ onCreate }: Props) {
   const [open, setOpen] = useState(false);
@@ -23,8 +37,21 @@ export function CreatePostForm({ onCreate }: Props) {
   const [target, setTarget] = useState<Post["target"]>("user");
   const [category, setCategory] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [videoFields, setVideoFields] = useState<VideoFormValues>(() =>
+    defaultVideoFormValues("reel"),
+  );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isVideoFormat(format)) return;
+    const vf = format === "story" ? "story" : "reel";
+    setVideoFields((v) => ({
+      ...v,
+      format: vf,
+      durationSeconds: vf === "story" ? 15 : v.durationSeconds,
+    }));
+  }, [format]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,19 +60,36 @@ export function CreatePostForm({ onCreate }: Props) {
       setErr("El título es obligatorio");
       return;
     }
+    if (isVideoFormat(format)) {
+      const t = videoFields.topic.trim();
+      if (!t || t.length > 200) {
+        setErr("Completá qué querés comunicar (1–200 caracteres)");
+        return;
+      }
+    }
     setSaving(true);
     try {
       await onCreate({
         title: title.trim(),
-        format,
+        format: isVideoFormat(format) ? videoFields.format : format,
         objective,
         target,
-        service_category: category.trim() || null,
+        service_category:
+          isVideoFormat(format) ? videoFields.serviceCategory : category.trim() || null,
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        brief: isVideoFormat(format) ? videoFields.topic.trim() : null,
+        video_content_type:
+          isVideoFormat(format) ? videoFields.contentType : null,
+        video_tone: isVideoFormat(format) ? videoFields.tone : null,
+        video_duration_seconds:
+          isVideoFormat(format) ? videoFields.durationSeconds : null,
+        video_category: isVideoFormat(format) ? videoFields.serviceCategory : null,
       });
       setTitle("");
       setCategory("");
       setScheduledAt("");
+      setFormat("feed_image");
+      setVideoFields(defaultVideoFormValues("reel"));
       setOpen(false);
     } catch (er) {
       setErr(er instanceof Error ? er.message : "Error");
@@ -130,15 +174,17 @@ export function CreatePostForm({ onCreate }: Props) {
             <option value="both">Ambos</option>
           </select>
         </label>
-        <label className="block">
-          <span className="text-xs font-medium text-zinc-600">Categoría</span>
-          <input
-            className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="plomeria, gas…"
-          />
-        </label>
+        {!isVideoFormat(format) ? (
+          <label className="block">
+            <span className="text-xs font-medium text-zinc-600">Categoría</span>
+            <input
+              className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="plomeria, gas…"
+            />
+          </label>
+        ) : null}
         <label className="block sm:col-span-2">
           <span className="text-xs font-medium text-zinc-600">Programado</span>
           <input
@@ -149,6 +195,18 @@ export function CreatePostForm({ onCreate }: Props) {
           />
         </label>
       </div>
+
+      {isVideoFormat(format) ? (
+        <VideoForm
+          value={videoFields}
+          onChange={(v) => {
+            setVideoFields(v);
+            if (v.format !== format) {
+              setFormat(v.format);
+            }
+          }}
+        />
+      ) : null}
 
       {err ? <p className="mt-2 text-xs text-red-600">{err}</p> : null}
 
