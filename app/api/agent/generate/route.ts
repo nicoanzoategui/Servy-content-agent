@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runContentGenerator } from "@/lib/agents/generator";
 import {
+  isVideoPostFormat,
+  postHasVideoCreationFields,
+} from "@/lib/posts/video-eligibility";
+import {
   fluxImageSizeForPostFormat,
   generateThreeImages,
 } from "@/lib/fal/flux";
@@ -103,6 +107,16 @@ export async function POST(request: Request) {
   }
 
   const post = postRow as Post;
+
+  if (isVideoPostFormat(post.format) && postHasVideoCreationFields(post)) {
+    return NextResponse.json(
+      {
+        error:
+          "Este post usa generación de video (reel/story con brief completo). Usá POST /api/agent/generate-video con el mismo post_id.",
+      },
+      { status: 400 },
+    );
+  }
 
   if (regenerate) {
     if (post.status !== "review") {

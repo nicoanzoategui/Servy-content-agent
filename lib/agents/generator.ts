@@ -2,6 +2,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { buildGeneratorSystemInstruction } from "@/lib/agents/prompts/generator";
 import { VIDEO_PROMPT_SYSTEM } from "@/lib/agents/prompts/video-generator";
+import {
+  isVideoPostFormat,
+  postHasVideoCreationFields,
+} from "@/lib/posts/video-eligibility";
 import type { Post, PostFormat, Strategy, StrategyCurrentRules } from "@/types";
 
 export type GeneratorAgentOutput = {
@@ -167,6 +171,15 @@ export type RunGeneratorInput = {
 export async function runContentGenerator(
   input: RunGeneratorInput,
 ): Promise<GeneratorAgentOutput> {
+  if (
+    isVideoPostFormat(input.post.format) &&
+    postHasVideoCreationFields(input.post)
+  ) {
+    throw new Error(
+      "Los posts reel/story con brief de video completo se generan con el flujo de video (runVideoPromptGenerator + /api/agent/generate-video), no con el generador de imágenes.",
+    );
+  }
+
   const currentRules: StrategyCurrentRules | Record<string, unknown> =
     input.strategy?.current_rules ?? {};
 
@@ -250,11 +263,13 @@ function parseVideoPromptOutput(raw: string): VideoPromptAgentOutput {
   if (!video_prompt) {
     throw new Error("video_prompt vacío");
   }
+  const defaultNegative =
+    "text, watermark, logo, subtitle, caption, ugly, deformed, blurry, low quality, " +
+    "dangerous situation, blood, fire hazard, electrical sparks, dirty clothes, messy environment, " +
+    "stock photo look, non-Argentine setting, luxury mansion, poverty, corporate office, foreign cars";
   return {
     video_prompt: video_prompt.slice(0, 8000),
-    negative_prompt:
-      negative_prompt ||
-      "text, watermark, logo, subtitle, ugly, deformed, blurry, low quality",
+    negative_prompt: negative_prompt || defaultNegative,
     suggested_caption:
       suggested_caption || "Servy — técnicos del hogar en Argentina",
   };

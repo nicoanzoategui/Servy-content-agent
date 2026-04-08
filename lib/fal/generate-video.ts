@@ -2,6 +2,7 @@ import { fal } from "@fal-ai/client";
 
 import { configureFalClient } from "@/lib/fal/flux";
 
+/** Kling v1.6 text-to-video — mismo cliente y credenciales que Flux (ver lib/fal/flux.ts). */
 const KLING_MODEL = "fal-ai/kling-video/v1.6/standard/text-to-video" as const;
 
 export interface VideoGenerationParams {
@@ -16,10 +17,14 @@ export interface VideoGenerationResult {
   videoUrl: string;
   /** Duración objetivo del reel/story (story siempre 15s). */
   durationSeconds: 15 | 30 | 60;
-  /** Duración del clip generado en fal (5 o 10). */
+  /** Duración del clip generado en fal (5 o 10 segundos). */
   falClipSeconds: 5 | 10;
 }
 
+/**
+ * Reels/Stories 9:16. Duración fal: 15s final → clip 5s; 30/60s final → clip 10s (loops en edición).
+ * Story: siempre 15s final → clip 5s.
+ */
 export async function generateVideo(
   params: VideoGenerationParams,
 ): Promise<VideoGenerationResult> {
@@ -27,14 +32,13 @@ export async function generateVideo(
 
   const targetDuration = params.format === "story" ? 15 : params.durationSeconds;
   const falDuration: "5" | "10" = targetDuration <= 15 ? "5" : "10";
-  const aspectRatio = "9:16";
 
   const result = await fal.subscribe(KLING_MODEL, {
     input: {
       prompt: params.prompt,
       negative_prompt: params.negativePrompt,
       duration: falDuration,
-      aspect_ratio: aspectRatio,
+      aspect_ratio: "9:16",
     },
     logs: true,
   });
