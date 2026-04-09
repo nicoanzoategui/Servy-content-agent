@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 
 import { createServiceClient } from "@/lib/supabase/service";
 
+// Capturar en build time (Vercel solo inyecta esta var durante el build)
+const COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA ?? null;
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -30,8 +33,7 @@ export async function GET() {
       ok,
       timestamp: new Date().toISOString(),
       /** Presente en Vercel: confirma qué commit desplegó el build. */
-      vercel_git_commit_sha:
-        process.env.VERCEL_GIT_COMMIT_SHA?.trim() || null,
+      vercel_git_commit_sha: COMMIT_SHA,
       checks: {
         supabase_env: hasUrl && hasService,
         database,
