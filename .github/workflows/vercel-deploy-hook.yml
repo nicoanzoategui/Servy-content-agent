@@ -1,0 +1,31 @@
+# Respaldo si la integración Git de Vercel no dispara builds al pushear.
+#
+# 1) Vercel → tu proyecto → Settings → Git → Deploy Hooks → Create Hook (rama main).
+# 2) GitHub → repo → Settings → Secrets and variables → Actions → New repository secret:
+#    Name: VERCEL_DEPLOY_HOOK_URL   Value: (pegar la URL del hook)
+#
+# Si dejás el secret vacío, este workflow no hace nada (exit 0).
+# Cuando la integración Git vuelva a funcionar, borrá el secret para no tener doble deploy.
+name: Vercel deploy hook (opcional)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Invocar Deploy Hook de Vercel
+        env:
+          HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${HOOK_URL}" ]; then
+            echo "::notice title=Vercel hook::VERCEL_DEPLOY_HOOK_URL no definido — se usa solo la integración Git de Vercel."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK_URL"
+          echo "::notice title=Vercel hook::Deploy Hook invocado correctamente."
