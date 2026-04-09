@@ -29,6 +29,9 @@ export async function GET() {
     {
       ok,
       timestamp: new Date().toISOString(),
+      /** Presente en Vercel: confirma qué commit desplegó el build. */
+      vercel_git_commit_sha:
+        process.env.VERCEL_GIT_COMMIT_SHA?.trim() || null,
       checks: {
         supabase_env: hasUrl && hasService,
         database,
