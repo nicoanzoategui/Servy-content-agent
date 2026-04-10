@@ -425,11 +425,7 @@ export function PostDetailForm({ initialPost }: Props) {
       setPost(json.post as Post);
       const partial = Boolean(json.video_columns_missing);
       setVideoPartialSave(partial);
-      setMessage(
-        partial ?
-          "Guardado: lo general sí quedó; los metadatos de video aún no (se explica abajo)."
-        : "Guardado",
-      );
+      setMessage(partial ? null : "Guardado");
     } catch (er) {
       setMessage(er instanceof Error ? er.message : "Error");
     } finally {
@@ -996,6 +992,103 @@ export function PostDetailForm({ initialPost }: Props) {
           </div>
         ) : null}
 
+        {videoPartialSave ? (
+          <div
+            className="rounded-xl border border-amber-200/90 bg-gradient-to-b from-amber-50 via-amber-50/80 to-white p-5 text-sm text-amber-950 shadow-md ring-1 ring-amber-100"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex gap-3 border-b border-amber-200/70 pb-4">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"
+                aria-hidden
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-base font-semibold leading-snug text-amber-950">
+                  Guardado en la app; falta un ajuste en Supabase
+                </p>
+                <p className="mt-1.5 leading-relaxed text-amber-900/95">
+                  Título, copy, estado y el resto <strong>sí quedaron</strong>. Los campos de{" "}
+                  <strong>video</strong> (tipo, tono, duración, categoría) no se pudieron guardar:
+                  en tu base todavía no están las columnas en <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-950">posts</code>.
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-800/90">
+              Qué hacer (una sola vez)
+            </p>
+            <ol className="mt-2 list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-amber-900 marker:text-amber-700">
+              <li>
+                En <strong>Supabase</strong>, el proyecto que coincide con las variables de{" "}
+                <strong>Vercel</strong> (
+                <code className="rounded bg-white/80 px-1 py-0.5 text-xs">NEXT_PUBLIC_SUPABASE_URL</code>
+                ).
+              </li>
+              <li>
+                <strong>SQL Editor</strong> → consulta nueva → pegá el script → <strong>Run</strong>.
+              </li>
+              <li>
+                Si falla la línea <code className="rounded bg-white/80 px-1 text-xs">notify</code>,
+                ignorala; esperá ~1 min.
+              </li>
+              <li>
+                Volvé acá y <strong>Guardar</strong> otra vez → este bloque debería desaparecer.
+              </li>
+            </ol>
+
+            <div className="mt-4 rounded-lg border border-zinc-700/50 bg-zinc-950 shadow-inner">
+              <div className="flex items-center justify-between gap-2 border-b border-zinc-700/60 px-3 py-2">
+                <span className="text-xs font-medium text-zinc-400">Script SQL</span>
+                <button
+                  type="button"
+                  className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await navigator.clipboard.writeText(APPLY_POSTS_VIDEO_COLUMNS_SQL);
+                        setSqlCopyFlash(true);
+                        window.setTimeout(() => setSqlCopyFlash(false), 2000);
+                      } catch {
+                        setMessage("No se pudo copiar; seleccioná el script manualmente");
+                      }
+                    })();
+                  }}
+                >
+                  {sqlCopyFlash ? "Copiado" : "Copiar todo"}
+                </button>
+              </div>
+              <pre className="max-h-64 overflow-auto p-3 font-mono text-xs leading-relaxed text-zinc-100 [tab-size:2]">
+                {APPLY_POSTS_VIDEO_COLUMNS_SQL}
+              </pre>
+            </div>
+
+            <p className="mt-3 text-xs leading-relaxed text-amber-800/85">
+              <strong>Ocultar</strong> solo cierra este recuadro; no crea columnas. Los metadatos de
+              video no se guardan hasta ejecutar el script y volver a guardar.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-amber-200/60 pt-4">
+              <button
+                type="button"
+                className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-950 hover:bg-amber-50"
+                onClick={() => setVideoPartialSave(false)}
+              >
+                Ocultar este aviso
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap gap-3 pt-2">
           <button
             type="submit"
@@ -1014,11 +1107,10 @@ export function PostDetailForm({ initialPost }: Props) {
           </button>
         </div>
 
-        {message ? (
+        {!videoPartialSave && message ? (
           <p
             className={`text-sm ${
               message === "Guardado" ||
-              message.startsWith("Guardado: lo general") ||
               message.startsWith("Contenido regenerado") ||
               message === "Publicado" ||
               message === "Imagen principal actualizada" ||
@@ -1034,75 +1126,6 @@ export function PostDetailForm({ initialPost }: Props) {
           >
             {message}
           </p>
-        ) : null}
-
-        {videoPartialSave ? (
-          <div
-            className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm"
-            role="status"
-          >
-            <p className="font-semibold text-amber-950">
-              Un paso más en Supabase (solo la primera vez)
-            </p>
-            <p className="mt-2 text-amber-900/95">
-              Tu app ya guardó título, copy, estado, etc. Lo que <strong>no</strong> entró a la base
-              son <strong>tipo / tono / duración / categoría de video</strong>, porque en tu proyecto
-              de Supabase todavía no existen esas columnas en la tabla <code className="rounded bg-amber-100/80 px-1">posts</code>.
-            </p>
-            <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-amber-900/95">
-              <li>
-                Abrí el <strong>mismo</strong> proyecto que usan las variables{" "}
-                <code className="rounded bg-amber-100/80 px-1">NEXT_PUBLIC_SUPABASE_URL</code> /{" "}
-                <code className="rounded bg-amber-100/80 px-1">SUPABASE_SERVICE_ROLE_KEY</code> de
-                Vercel.
-              </li>
-              <li>
-                <strong>SQL Editor</strong> → nueva consulta → pegá el script → <strong>Run</strong>.
-              </li>
-              <li>
-                Si falla la última línea (<code className="rounded bg-amber-100/80 px-1">notify</code>
-                ), ignorala y esperá ~1 minuto.
-              </li>
-              <li>
-                Volvé acá y pulsá <strong>Guardar</strong> otra vez: este recuadro debería
-                desaparecer solo.
-              </li>
-            </ol>
-            <p className="mt-2 text-xs text-amber-800/90">
-              Este aviso se oculta al guardar con éxito completo, o podés usar{" "}
-              <strong>Ocultar aviso</strong> si solo querés cerrarlo (los metadatos de video seguirán
-              sin persistir hasta hacer los pasos de arriba).
-            </p>
-            <pre className="mt-3 max-h-52 overflow-auto rounded-md border border-amber-200/80 bg-zinc-900 p-3 font-mono text-[11px] leading-relaxed text-zinc-100">
-              {APPLY_POSTS_VIDEO_COLUMNS_SQL}
-            </pre>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800"
-                onClick={() => {
-                  void (async () => {
-                    try {
-                      await navigator.clipboard.writeText(APPLY_POSTS_VIDEO_COLUMNS_SQL);
-                      setSqlCopyFlash(true);
-                      window.setTimeout(() => setSqlCopyFlash(false), 2000);
-                    } catch {
-                      setMessage("No se pudo copiar; seleccioná el script manualmente");
-                    }
-                  })();
-                }}
-              >
-                {sqlCopyFlash ? "Copiado ✓" : "Copiar SQL"}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-medium text-amber-950 hover:bg-amber-100/50"
-                onClick={() => setVideoPartialSave(false)}
-              >
-                Ocultar aviso (no guarda nada)
-              </button>
-            </div>
-          </div>
         ) : null}
       </form>
     </div>
