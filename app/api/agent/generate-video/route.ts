@@ -174,7 +174,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await loadActiveStrategy(supabase);
+    const strategy = await loadActiveStrategy(supabase);
 
     const freshPost: Post = {
       ...post,
@@ -185,6 +185,7 @@ export async function POST(request: Request) {
 
     const prompts = await runVideoPromptGenerator({
       post: freshPost,
+      strategy,
       regenerationFeedback: promptFeedback,
     });
 

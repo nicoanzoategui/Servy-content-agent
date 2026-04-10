@@ -277,6 +277,8 @@ function parseVideoPromptOutput(raw: string): VideoPromptAgentOutput {
 
 export type RunVideoPromptInput = {
   post: Post;
+  /** Estrategia activa: brandbook + reglas para el user turn (video_spec.md §FLUJO). */
+  strategy?: Strategy | null;
   regenerationFeedback?: string | null;
 };
 
@@ -285,7 +287,7 @@ export { isVideoPostFormat, postHasVideoCreationFields } from "@/lib/posts/video
 export async function runVideoPromptGenerator(
   input: RunVideoPromptInput,
 ): Promise<VideoPromptAgentOutput> {
-  const { post, regenerationFeedback } = input;
+  const { post, strategy, regenerationFeedback } = input;
   const payload = {
     topic: (post.brief ?? "").trim(),
     format: post.format,
@@ -294,6 +296,8 @@ export async function runVideoPromptGenerator(
     serviceCategory: post.video_category,
     tone: post.video_tone,
     title: post.title,
+    brand_context: strategy?.brand_context ?? null,
+    current_rules: strategy?.current_rules ?? null,
   };
 
   const feedbackBlock =
