@@ -423,8 +423,13 @@ export function PostDetailForm({ initialPost }: Props) {
         );
       }
       setPost(json.post as Post);
-      setVideoPartialSave(Boolean(json.video_columns_missing));
-      setMessage("Guardado");
+      const partial = Boolean(json.video_columns_missing);
+      setVideoPartialSave(partial);
+      setMessage(
+        partial ?
+          "Guardado: lo general sí quedó; los metadatos de video aún no (se explica abajo)."
+        : "Guardado",
+      );
     } catch (er) {
       setMessage(er instanceof Error ? er.message : "Error");
     } finally {
@@ -1013,6 +1018,7 @@ export function PostDetailForm({ initialPost }: Props) {
           <p
             className={`text-sm ${
               message === "Guardado" ||
+              message.startsWith("Guardado: lo general") ||
               message.startsWith("Contenido regenerado") ||
               message === "Publicado" ||
               message === "Imagen principal actualizada" ||
@@ -1036,16 +1042,36 @@ export function PostDetailForm({ initialPost }: Props) {
             role="status"
           >
             <p className="font-semibold text-amber-950">
-              Falta actualizar la base de datos (Supabase)
+              Un paso más en Supabase (solo la primera vez)
             </p>
             <p className="mt-2 text-amber-900/95">
-              El resto del post se guardó bien, pero{" "}
-              <strong>tipo, tono, duración y categoría de video</strong> no tienen columnas en tu
-              proyecto todavía. En{" "}
-              <strong className="text-amber-950">Supabase → SQL Editor</strong> creá una consulta
-              nueva, pegá el script de abajo, ejecutá <strong>Run</strong>. Si la última línea
-              (<code className="rounded bg-amber-100/80 px-1">notify</code>) da error, ignorala y
-              esperá un minuto. Después volvé a pulsar <strong>Guardar</strong> acá.
+              Tu app ya guardó título, copy, estado, etc. Lo que <strong>no</strong> entró a la base
+              son <strong>tipo / tono / duración / categoría de video</strong>, porque en tu proyecto
+              de Supabase todavía no existen esas columnas en la tabla <code className="rounded bg-amber-100/80 px-1">posts</code>.
+            </p>
+            <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-amber-900/95">
+              <li>
+                Abrí el <strong>mismo</strong> proyecto que usan las variables{" "}
+                <code className="rounded bg-amber-100/80 px-1">NEXT_PUBLIC_SUPABASE_URL</code> /{" "}
+                <code className="rounded bg-amber-100/80 px-1">SUPABASE_SERVICE_ROLE_KEY</code> de
+                Vercel.
+              </li>
+              <li>
+                <strong>SQL Editor</strong> → nueva consulta → pegá el script → <strong>Run</strong>.
+              </li>
+              <li>
+                Si falla la última línea (<code className="rounded bg-amber-100/80 px-1">notify</code>
+                ), ignorala y esperá ~1 minuto.
+              </li>
+              <li>
+                Volvé acá y pulsá <strong>Guardar</strong> otra vez: este recuadro debería
+                desaparecer solo.
+              </li>
+            </ol>
+            <p className="mt-2 text-xs text-amber-800/90">
+              Este aviso se oculta al guardar con éxito completo, o podés usar{" "}
+              <strong>Ocultar aviso</strong> si solo querés cerrarlo (los metadatos de video seguirán
+              sin persistir hasta hacer los pasos de arriba).
             </p>
             <pre className="mt-3 max-h-52 overflow-auto rounded-md border border-amber-200/80 bg-zinc-900 p-3 font-mono text-[11px] leading-relaxed text-zinc-100">
               {APPLY_POSTS_VIDEO_COLUMNS_SQL}
@@ -1073,7 +1099,7 @@ export function PostDetailForm({ initialPost }: Props) {
                 className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-medium text-amber-950 hover:bg-amber-100/50"
                 onClick={() => setVideoPartialSave(false)}
               >
-                Ocultar aviso
+                Ocultar aviso (no guarda nada)
               </button>
             </div>
           </div>
