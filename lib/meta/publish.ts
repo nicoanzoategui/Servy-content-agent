@@ -28,11 +28,24 @@ function selectedImageUrl(post: Post): string {
   throw new Error("El post no tiene imagen para publicar");
 }
 
+function publicVideoUrl(post: Post): string | null {
+  const u = (post.video_url ?? "").trim();
+  if (!u) return null;
+  if (!/^https:\/\//i.test(u)) {
+    throw new Error(
+      "video_url debe ser una URL https pública (Instagram debe poder descargar el archivo)",
+    );
+  }
+  return u;
+}
+
 async function waitForIgContainer(
   containerId: string,
-  maxMs = 90_000,
+  maxMs: number,
+  kind: "image" | "video",
 ): Promise<void> {
   const start = Date.now();
+  const label = kind === "video" ? "video" : "imagen";
   while (Date.now() - start < maxMs) {
     const data = (await metaGraphGet(containerId, {
       fields: "status_code",
@@ -42,9 +55,14 @@ async function waitForIgContainer(
     if (code === "ERROR") {
       throw new Error("Instagram rechazó el contenedor de media");
     }
-    await sleep(2000);
+    if (code === "EXPIRED") {
+      throw new Error("El contenedor de Instagram expiró; generá de nuevo el video");
+    }
+    await sleep(kind === "video" ? 4000 : 2000);
   }
-  throw new Error("Timeout esperando procesamiento de imagen en Instagram");
+  throw new Error(
+    `Timeout esperando procesamiento de ${label} en Instagram (${Math.round(maxMs / 1000)}s)`,
+  );
 }
 
 type IgPublishResult = { id: string; permalink?: string };
@@ -73,7 +91,7 @@ async function publishInstagramImage(args: {
     throw new Error("Instagram no devolvió creation_id");
   }
 
-  await waitForIgContainer(creationId);
+  await waitForIgContainer(creationId, 90_000, "image");
 
   const pub = (await metaGraphPost(`${args.igUserId}/media_publish`, {
     creation_id: creationId,
@@ -81,6 +99,50 @@ async function publishInstagramImage(args: {
   const mediaId = pub.id;
   if (!mediaId) {
     throw new Error("Instagram no devolvió media id tras publicar");
+  }
+
+  const info = (await metaGraphGet(mediaId, {
+    fields: "permalink,media_type",
+  })) as { permalink?: string };
+
+  return { id: mediaId, permalink: info.permalink };
+}
+
+/** Story o Reel con `video_url` (Content Publishing API). */
+async function publishInstagramVideo(args: {
+  igUserId: string;
+  videoUrl: string;
+  caption: string;
+  format: "story" | "reel";
+}): Promise<IgPublishResult> {
+  const base: Record<string, string | undefined> = {
+    video_url: args.videoUrl,
+  };
+
+  if (args.format === "story") {
+    base.media_type = "STORIES";
+  } else {
+    base.media_type = "REELS";
+    base.caption = args.caption;
+    base.share_to_feed = "true";
+  }
+
+  const create = (await metaGraphPost(`${args.igUserId}/media`, base)) as {
+    id?: string;
+  };
+  const creationId = create.id;
+  if (!creationId) {
+    throw new Error("Instagram no devolvió id de contenedor de video");
+  }
+
+  await waitForIgContainer(creationId, 300_000, "video");
+
+  const pub = (await metaGraphPost(`${args.igUserId}/media_publish`, {
+    creation_id: creationId,
+  })) as { id?: string };
+  const mediaId = pub.id;
+  if (!mediaId) {
+    throw new Error("Instagram no devolvió media id tras publicar el video");
   }
 
   const info = (await metaGraphGet(mediaId, {
@@ -121,18 +183,35 @@ export async function publishPostToMeta(post: Post): Promise<MetaPublishResult> 
 
   const igUserId = process.env.META_IG_ACCOUNT_ID?.trim();
   const pageId = process.env.META_PAGE_ID?.trim();
-  const imageUrl = selectedImageUrl(post);
   const caption = buildCaption(post);
+  const videoUrl = publicVideoUrl(post);
+  const wantsVideo =
+    (post.format === "story" || post.format === "reel") && Boolean(videoUrl);
 
-  if (post.format === "reel") {
+  if (post.format === "reel" && !videoUrl) {
     throw new Error(
-      "Los reels requieren video; publicalos manualmente o extendé el pipeline de video.",
+      "Los reels requieren un video generado (video_url). Generá el video con IA o subí un clip antes de publicar.",
     );
   }
 
   const isStory = post.format === "story";
 
   if (igUserId) {
+    if (wantsVideo && videoUrl) {
+      const { id, permalink } = await publishInstagramVideo({
+        igUserId,
+        videoUrl,
+        caption,
+        format: post.format === "reel" ? "reel" : "story",
+      });
+      return {
+        meta_post_id: id,
+        published_url: permalink ?? null,
+        channel: "instagram",
+      };
+    }
+
+    const imageUrl = selectedImageUrl(post);
     const { id, permalink } = await publishInstagramImage({
       igUserId,
       imageUrl,
@@ -147,11 +226,12 @@ export async function publishPostToMeta(post: Post): Promise<MetaPublishResult> 
   }
 
   if (pageId) {
-    if (isStory) {
+    if (isStory || post.format === "reel") {
       throw new Error(
-        "Stories de Instagram requieren META_IG_ACCOUNT_ID. La API de página no publica IG Stories desde acá.",
+        "Stories y reels de Instagram requieren META_IG_ACCOUNT_ID (token con instagram_content_publish). La publicación solo por META_PAGE_ID es para fotos de feed en Facebook.",
       );
     }
+    const imageUrl = selectedImageUrl(post);
     const { id, permalink } = await publishFacebookPagePhoto({
       pageId,
       imageUrl,

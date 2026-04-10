@@ -182,6 +182,7 @@ export function PostDetailForm({ initialPost }: Props) {
     isReview || isGenerating || hasGeneratedPreview;
   const showVideoGeneratingBanner =
     isVideoPostFormat(post.format) && isGenerating;
+  const hasVideoUrl = Boolean((post.video_url ?? "").trim());
   const previewImageClass =
     post.format === "story" || post.format === "reel" ?
       "relative aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
@@ -517,19 +518,63 @@ export function PostDetailForm({ initialPost }: Props) {
             </p>
           ) : (
             <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,280px),1fr] lg:items-start">
-              {(post.video_url ?? "").trim() ? (
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    Video
-                  </span>
-                  <div className="mt-2">
-                    <VideoPlayer src={post.video_url} />
+              {isVideoPostFormat(post.format) && !isGenerating && !hasVideoUrl ? (
+                <div className="lg:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  {post.format === "reel" ? (
+                    <p>
+                      <span className="font-semibold">Falta el video.</span> Los reels no se
+                      publican sin un archivo en{" "}
+                      <span className="font-mono text-xs">video_url</span>. Generá el video con
+                      IA y esperá a que aparezca el reproductor arriba antes de aprobar.
+                    </p>
+                  ) : (
+                    <p>
+                      <span className="font-semibold">Story sin video listo.</span> Si aprobás
+                      ahora, Instagram recibirá{" "}
+                      <span className="font-semibold">solo la imagen de portada</span> como story
+                      estática. Cuando exista video, se publicará el clip automáticamente.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+              {hasVideoUrl ? (
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      Video (vista previa — lo que va a Instagram)
+                    </span>
+                    <div className="mt-2">
+                      <VideoPlayer src={post.video_url!} />
+                    </div>
                   </div>
+                  {thumb ? (
+                    <div>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                        Portada / referencia (no reemplaza al video)
+                      </span>
+                      <div className={`${previewImageClass} mt-2`}>
+                        <Image
+                          src={thumb}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 1024px) 100vw, 280px"
+                        />
+                      </div>
+                      {gallery.length > 1 ? (
+                        <p className="mt-2 text-xs text-zinc-500">
+                          Hay {gallery.length} variantes; podés elegir la principal más abajo.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : thumb ? (
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    Imagen principal
+                    {isVideoPostFormat(post.format) ?
+                      "Imagen (sin video — Meta publicará esto si no hay clip)"
+                    : "Imagen principal"}
                   </span>
                   <div className={`${previewImageClass} mt-2`}>
                     <Image
@@ -944,7 +989,15 @@ export function PostDetailForm({ initialPost }: Props) {
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={approveBusy}
+                disabled={
+                  approveBusy ||
+                  (post.format === "reel" && !hasVideoUrl)
+                }
+                title={
+                  post.format === "reel" && !hasVideoUrl ?
+                    "Generá el video antes de publicar el reel"
+                  : undefined
+                }
                 onClick={() => void approveAndPublish()}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
