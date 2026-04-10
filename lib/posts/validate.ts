@@ -318,6 +318,91 @@ export function parsePostPatchBody(body: unknown): {
     }
   }
 
+  if (out.scheduled_at !== undefined) {
+    if (out.scheduled_at === null) {
+      /* keep null */
+    } else if (out.scheduled_at === "") {
+      out.scheduled_at = null;
+    } else if (isString(out.scheduled_at)) {
+      const s = out.scheduled_at.trim();
+      if (!s) {
+        out.scheduled_at = null;
+      } else {
+        const ms = Date.parse(s);
+        if (Number.isNaN(ms)) {
+          return { ok: false, error: "scheduled_at inválido" };
+        }
+        out.scheduled_at = new Date(ms).toISOString();
+      }
+    } else {
+      return { ok: false, error: "scheduled_at inválido" };
+    }
+  }
+
+  if (out.service_category !== undefined && out.service_category === "") {
+    out.service_category = null;
+  }
+
+  if (out.hashtags !== undefined && out.hashtags !== null) {
+    if (!Array.isArray(out.hashtags)) {
+      return { ok: false, error: "hashtags debe ser un arreglo" };
+    }
+    const tags = out.hashtags
+      .filter((x): x is string => typeof x === "string")
+      .map((t) => t.replace(/^#/, "").trim())
+      .filter(Boolean);
+    out.hashtags = tags;
+  }
+
+  if (out.video_duration_seconds !== undefined && out.video_duration_seconds !== null) {
+    const raw = out.video_duration_seconds;
+    const n =
+      typeof raw === "number" ? raw
+      : typeof raw === "string" ? Number(raw)
+      : NaN;
+    if (!VIDEO_DURATION_TARGETS.includes(n as VideoDurationTarget)) {
+      return { ok: false, error: "video_duration_seconds inválido" };
+    }
+    out.video_duration_seconds = n as VideoDurationTarget;
+  }
+
+  if (out.video_content_type !== undefined && out.video_content_type !== null) {
+    if (
+      !isString(out.video_content_type) ||
+      !VIDEO_CONTENT_TYPES.includes(out.video_content_type as VideoContentType)
+    ) {
+      return { ok: false, error: "video_content_type inválido" };
+    }
+  }
+
+  if (out.video_tone !== undefined && out.video_tone !== null) {
+    if (!isString(out.video_tone) || !VIDEO_TONES.includes(out.video_tone as VideoTone)) {
+      return { ok: false, error: "video_tone inválido" };
+    }
+  }
+
+  if (out.video_category !== undefined && out.video_category !== null) {
+    if (!isString(out.video_category)) {
+      return { ok: false, error: "video_category inválido" };
+    }
+    const c = out.video_category.trim().toLowerCase();
+    if (!VIDEO_CATEGORIES.has(c)) {
+      return { ok: false, error: "video_category inválido" };
+    }
+    out.video_category = c;
+  }
+
+  if (
+    out.format === "story" &&
+    out.video_duration_seconds != null &&
+    out.video_duration_seconds !== 15
+  ) {
+    return {
+      ok: false,
+      error: "Story usa siempre 15 segundos de duración final",
+    };
+  }
+
   if (Object.keys(out).length === 0) {
     return { ok: false, error: "No hay campos para actualizar" };
   }

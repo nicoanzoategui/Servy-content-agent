@@ -58,9 +58,16 @@ export async function PATCH(request: Request, { params }: Params) {
       .maybeSingle();
 
     if (error) {
-      console.error(error);
+      console.error("posts PATCH supabase:", error);
+      const hint =
+        typeof error.message === "string" && error.message.trim() ?
+          error.message.trim()
+        : "";
       return NextResponse.json(
-        { error: "No se pudo actualizar el post" },
+        {
+          error: "No se pudo actualizar el post",
+          ...(hint ? { details: hint } : {}),
+        },
         { status: 500 },
       );
     }

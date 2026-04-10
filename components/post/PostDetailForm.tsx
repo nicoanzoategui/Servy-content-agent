@@ -379,10 +379,15 @@ export function PostDetailForm({ initialPost }: Props) {
           objective: post.objective,
           target: post.target,
           service_category: post.service_category,
-          scheduled_at: post.scheduled_at,
+          scheduled_at:
+            post.scheduled_at && String(post.scheduled_at).trim() ?
+              post.scheduled_at
+            : null,
           status: post.status,
           copy: post.copy,
-          hashtags: post.hashtags ?? [],
+          hashtags: Array.isArray(post.hashtags) ?
+            post.hashtags.filter((t) => typeof t === "string")
+          : [],
           cta_text: post.cta_text,
           brief: post.brief?.trim() || null,
           video_brief:
@@ -396,7 +401,7 @@ export function PostDetailForm({ initialPost }: Props) {
             isVideoPostFormat(post.format) ?
               post.format === "story" ?
                 15
-              : post.video_duration_seconds
+              : (post.video_duration_seconds ?? 15)
             : null,
           video_category:
             isVideoPostFormat(post.format) ? post.video_category : null,
@@ -405,7 +410,15 @@ export function PostDetailForm({ initialPost }: Props) {
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error ?? "Error al guardar");
+      if (!res.ok) {
+        const details =
+          typeof json.details === "string" ? json.details.trim() : "";
+        throw new Error(
+          details ?
+            `${json.error ?? "Error al guardar"}: ${details}`
+          : (json.error ?? "Error al guardar"),
+        );
+      }
       setPost(json.post as Post);
       setMessage("Guardado");
     } catch (er) {
