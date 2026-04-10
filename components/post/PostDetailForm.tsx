@@ -120,11 +120,16 @@ export function PostDetailForm({ initialPost }: Props) {
     : post.image_url;
 
   const isReview = post.status === "review";
+  const isGenerating = post.status === "generating";
   const hasGeneratedPreview =
     Boolean((post.copy ?? "").trim()) ||
     Boolean(thumb) ||
     Boolean((post.video_brief ?? "").trim()) ||
     Boolean((post.video_url ?? "").trim());
+  const showPreviewSection =
+    isReview || isGenerating || hasGeneratedPreview;
+  const showVideoGeneratingBanner =
+    isVideoPostFormat(post.format) && isGenerating;
   const previewImageClass =
     post.format === "story" || post.format === "reel" ?
       "relative aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
@@ -386,7 +391,22 @@ export function PostDetailForm({ initialPost }: Props) {
         </p>
       ) : null}
 
-      {isReview ? (
+      {showVideoGeneratingBanner ? (
+        <div
+          className="mt-4 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="font-semibold text-violet-950">
+            Generando video con Kling AI…
+          </p>
+          <p className="mt-1 text-violet-900/90">
+            Esto puede tardar varios minutos.
+          </p>
+        </div>
+      ) : null}
+
+      {showPreviewSection ? (
         <section
           className="mt-6 rounded-xl border-2 border-emerald-200 bg-gradient-to-b from-emerald-50/70 to-white p-5 shadow-sm"
           aria-label="Vista previa para aprobación"
@@ -396,8 +416,18 @@ export function PostDetailForm({ initialPost }: Props) {
           </h2>
           {!hasGeneratedPreview ? (
             <p className="mt-2 text-sm text-amber-800">
-              Todavía no hay copy ni imagen en este post. Si acabás de moverlo a revisión,
-              generá contenido desde el kanban o revisá que la generación haya terminado.
+              {isGenerating ? (
+                <>
+                  Generando contenido… Podés seguir editando el formulario abajo. Actualizá
+                  esta página en unos minutos o volvé desde el kanban cuando termine.
+                </>
+              ) : (
+                <>
+                  Todavía no hay copy ni imagen en este post. Si acabás de moverlo a
+                  revisión, generá contenido desde el kanban o revisá que la generación haya
+                  terminado.
+                </>
+              )}
             </p>
           ) : (
             <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,280px),1fr] lg:items-start">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
@@ -22,7 +23,7 @@ type Props = {
     video_tone: Post["video_tone"];
     video_duration_seconds: Post["video_duration_seconds"];
     video_category: string | null;
-  }) => Promise<void>;
+  }) => Promise<Post>;
 };
 
 function isVideoFormat(f: Post["format"]): boolean {
@@ -30,6 +31,7 @@ function isVideoFormat(f: Post["format"]): boolean {
 }
 
 export function CreatePostForm({ onCreate }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [format, setFormat] = useState<Post["format"]>("feed_image");
@@ -69,7 +71,7 @@ export function CreatePostForm({ onCreate }: Props) {
     }
     setSaving(true);
     try {
-      await onCreate({
+      const created = await onCreate({
         title: title.trim(),
         format: isVideoFormat(format) ? videoFields.format : format,
         objective,
@@ -85,12 +87,7 @@ export function CreatePostForm({ onCreate }: Props) {
           isVideoFormat(format) ? videoFields.durationSeconds : null,
         video_category: isVideoFormat(format) ? videoFields.serviceCategory : null,
       });
-      setTitle("");
-      setCategory("");
-      setScheduledAt("");
-      setFormat("feed_image");
-      setVideoFields(defaultVideoFormValues("reel"));
-      setOpen(false);
+      router.push(`/post/${created.id}`);
     } catch (er) {
       setErr(er instanceof Error ? er.message : "Error");
     } finally {

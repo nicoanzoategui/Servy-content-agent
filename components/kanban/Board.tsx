@@ -152,9 +152,7 @@ export function Board() {
             Actualizar
           </button>
           <CreatePostForm
-            onCreate={async (input) => {
-              await createPost({ ...input });
-            }}
+            onCreate={(input) => createPost({ ...input })}
           />
         </div>
       </div>
