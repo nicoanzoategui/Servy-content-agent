@@ -71,6 +71,7 @@ export function CreatePostForm({ onCreate }: Props) {
     }
     setSaving(true);
     try {
+      const videoFormat = isVideoFormat(format) ? videoFields.format : null;
       const created = await onCreate({
         title: title.trim(),
         format: isVideoFormat(format) ? videoFields.format : format,
@@ -84,7 +85,11 @@ export function CreatePostForm({ onCreate }: Props) {
           isVideoFormat(format) ? videoFields.contentType : null,
         video_tone: isVideoFormat(format) ? videoFields.tone : null,
         video_duration_seconds:
-          isVideoFormat(format) ? videoFields.durationSeconds : null,
+          isVideoFormat(format) ?
+            videoFormat === "story" ?
+              15
+            : videoFields.durationSeconds
+          : null,
         video_category: isVideoFormat(format) ? videoFields.serviceCategory : null,
       });
       router.push(`/post/${created.id}`);

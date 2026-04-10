@@ -101,6 +101,9 @@ export function VideoForm({ value, onChange }: Props) {
       <label className="block">
         <span className="text-xs font-medium text-zinc-600">
           Duración del video final
+          {value.format === "story" ? (
+            <span className="ml-1 font-normal text-zinc-400">(Story: siempre 15 s)</span>
+          ) : null}
         </span>
         <select
           className="mt-1 w-full rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm"

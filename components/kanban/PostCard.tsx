@@ -144,12 +144,12 @@ function PostCardInner({
         <span className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-700">
           {FORMAT_LABEL[post.format]}
         </span>
-        {post.format === "reel" &&
+        {(post.format === "reel" || post.format === "story") &&
         post.video_brief &&
         (post.status === "review" || post.status === "approved") ? (
           <span
             className="rounded bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-800"
-            title="Hay guion de reel generado"
+            title="Hay guion de video generado"
           >
             Guion
           </span>
@@ -180,6 +180,15 @@ function PostCardInner({
             sizes="280px"
           />
         </div>
+      ) : null}
+
+      {post.status === "review" ? (
+        <Link
+          href={`/post/${post.id}`}
+          className="mt-2 block w-full rounded-md border border-emerald-600 bg-emerald-50 py-1.5 text-center text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+        >
+          Ver y aprobar →
+        </Link>
       ) : null}
 
       {post.status === "published" ? (

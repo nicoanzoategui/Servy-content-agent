@@ -384,7 +384,7 @@ export function PostDetailForm({ initialPost }: Props) {
       <h1 className="mt-4 text-2xl font-bold text-zinc-900">
         {isReview ? "Revisar post" : "Editar post"}
       </h1>
-      {isReview ? (
+      {(isReview || hasGeneratedPreview) ? (
         <p className="mt-1 max-w-2xl text-sm text-zinc-600">
           Contenido generado para tu aprobación. Revisalo acá y más abajo podés editar,
           regenerar con IA o aprobar y publicar.
@@ -397,12 +397,20 @@ export function PostDetailForm({ initialPost }: Props) {
           role="status"
           aria-live="polite"
         >
-          <p className="font-semibold text-violet-950">
-            Generando video con Kling AI…
-          </p>
-          <p className="mt-1 text-violet-900/90">
-            Esto puede tardar varios minutos.
-          </p>
+          {post.format === "story" ? (
+            <p className="font-semibold text-violet-950">
+              Generando video con Kling AI… esto puede tardar 2-5 minutos.
+            </p>
+          ) : (
+            <>
+              <p className="font-semibold text-violet-950">
+                Generando video con Kling AI…
+              </p>
+              <p className="mt-1 text-violet-900/90">
+                Esto puede tardar varios minutos.
+              </p>
+            </>
+          )}
         </div>
       ) : null}
 
