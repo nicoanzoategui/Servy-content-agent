@@ -5,12 +5,26 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import {
+  VideoForm,
+  defaultVideoFormValues,
+  type VideoFormValues,
+} from "@/components/post/VideoForm";
 import { VideoPlayer } from "@/components/post/VideoPlayer";
 import {
   isVideoPostFormat,
   postHasVideoCreationFields,
 } from "@/lib/posts/video-eligibility";
 import type { Post, PostStatus } from "@/types";
+
+const VIDEO_SERVICE_CATS = new Set([
+  "plomeria",
+  "electricidad",
+  "gas",
+  "cerrajeria",
+  "aires",
+  "general",
+]);
 
 const appBase =
   typeof process.env.NEXT_PUBLIC_APP_URL === "string" ?
@@ -42,6 +56,41 @@ function normalizePost(p: Post): Post {
     video_tone: p.video_tone ?? null,
     video_category: p.video_category ?? null,
     video_duration_seconds: p.video_duration_seconds ?? null,
+  };
+}
+
+function videoCategoryForForm(p: Post, fallback: string): string {
+  const raw = (p.video_category ?? p.service_category ?? fallback)
+    .toLowerCase()
+    .trim();
+  return VIDEO_SERVICE_CATS.has(raw) ? raw : fallback;
+}
+
+function videoValuesFromPost(p: Post): VideoFormValues {
+  const vf: VideoFormValues["format"] =
+    p.format === "story" ? "story" : "reel";
+  const defaults = defaultVideoFormValues(vf);
+  return {
+    topic: (p.brief ?? "").slice(0, 200),
+    contentType: p.video_content_type ?? defaults.contentType,
+    durationSeconds:
+      vf === "story" ? 15 : (p.video_duration_seconds ?? defaults.durationSeconds),
+    format: vf,
+    serviceCategory: videoCategoryForForm(p, defaults.serviceCategory),
+    tone: p.video_tone ?? defaults.tone,
+  };
+}
+
+function mergeVideoIntoPost(p: Post, v: VideoFormValues): Post {
+  return {
+    ...p,
+    format: v.format === "story" ? "story" : "reel",
+    brief: v.topic.trim() || null,
+    service_category: v.serviceCategory,
+    video_content_type: v.contentType,
+    video_tone: v.tone,
+    video_duration_seconds: v.format === "story" ? 15 : v.durationSeconds,
+    video_category: v.serviceCategory,
   };
 }
 
@@ -337,9 +386,20 @@ export function PostDetailForm({ initialPost }: Props) {
           cta_text: post.cta_text,
           brief: post.brief?.trim() || null,
           video_brief:
-            post.format === "reel" ?
+            isVideoPostFormat(post.format) ?
               post.video_brief?.trim() || null
             : null,
+          video_content_type:
+            isVideoPostFormat(post.format) ? post.video_content_type : null,
+          video_tone: isVideoPostFormat(post.format) ? post.video_tone : null,
+          video_duration_seconds:
+            isVideoPostFormat(post.format) ?
+              post.format === "story" ?
+                15
+              : post.video_duration_seconds
+            : null,
+          video_category:
+            isVideoPostFormat(post.format) ? post.video_category : null,
           regeneration_feedback:
             regenerationDraft.trim() || null,
         }),
@@ -510,10 +570,11 @@ export function PostDetailForm({ initialPost }: Props) {
                     </p>
                   </div>
                 ) : null}
-                {post.format === "reel" && (post.video_brief ?? "").trim() ? (
+                {isVideoPostFormat(post.format) &&
+                (post.video_brief ?? "").trim() ? (
                   <details className="rounded-lg border border-zinc-200 bg-white p-3">
                     <summary className="cursor-pointer text-sm font-medium text-zinc-800">
-                      Guion / brief del reel
+                      Guion / brief del video
                     </summary>
                     <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap text-xs text-zinc-700">
                       {post.video_brief}
@@ -575,10 +636,20 @@ export function PostDetailForm({ initialPost }: Props) {
               value={post.format}
               onChange={(e) => {
                 const fmt = e.target.value as Post["format"];
-                setPost({
-                  ...post,
-                  format: fmt,
-                  video_brief: fmt === "reel" ? post.video_brief : null,
+                setPost((p) => {
+                  if (fmt === "reel" || fmt === "story") {
+                    const next = { ...p, format: fmt };
+                    return mergeVideoIntoPost(next, videoValuesFromPost(next));
+                  }
+                  return {
+                    ...p,
+                    format: fmt,
+                    video_brief: null,
+                    video_content_type: null,
+                    video_tone: null,
+                    video_duration_seconds: null,
+                    video_category: null,
+                  };
                 });
               }}
             >
@@ -641,37 +712,46 @@ export function PostDetailForm({ initialPost }: Props) {
           </select>
         </label>
 
-        <label className="block">
-          <span className="text-sm font-medium text-zinc-700">Categoría</span>
-          <input
-            className="mt-1 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm"
-            value={post.service_category ?? ""}
-            onChange={(e) =>
-              setPost({
-                ...post,
-                service_category: e.target.value.trim() || null,
-              })
-            }
-          />
-        </label>
+        {!isVideoPostFormat(post.format) ? (
+          <label className="block">
+            <span className="text-sm font-medium text-zinc-700">Categoría</span>
+            <input
+              className="mt-1 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm"
+              value={post.service_category ?? ""}
+              onChange={(e) =>
+                setPost({
+                  ...post,
+                  service_category: e.target.value.trim() || null,
+                })
+              }
+            />
+          </label>
+        ) : null}
 
-        <label className="block">
-          <span className="text-sm font-medium text-zinc-700">
-            Brief / contexto para la IA{" "}
-            <span className="font-normal text-zinc-400">(opcional)</span>
-          </span>
-          <p className="mt-0.5 text-xs text-zinc-500">
-            Indicaciones extra para el generador: tono específico, contexto de campaña, qué mostrar en la imagen, etc.
-          </p>
-          <textarea
-            className="mt-1 min-h-[80px] w-full rounded-md border border-zinc-200 px-3 py-2 text-sm"
-            value={post.brief ?? ""}
-            onChange={(e) =>
-              setPost({ ...post, brief: e.target.value || null })
-            }
-            placeholder="Ej.: Este post es el primero del feed. Mostrar frustración del usuario, no el servicio resuelto."
+        {!isVideoPostFormat(post.format) ? (
+          <label className="block">
+            <span className="text-sm font-medium text-zinc-700">
+              Brief / contexto para la IA{" "}
+              <span className="font-normal text-zinc-400">(opcional)</span>
+            </span>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Indicaciones extra para el generador: tono específico, contexto de campaña, qué mostrar en la imagen, etc.
+            </p>
+            <textarea
+              className="mt-1 min-h-[80px] w-full rounded-md border border-zinc-200 px-3 py-2 text-sm"
+              value={post.brief ?? ""}
+              onChange={(e) =>
+                setPost({ ...post, brief: e.target.value || null })
+              }
+              placeholder="Ej.: Este post es el primero del feed. Mostrar frustración del usuario, no el servicio resuelto."
+            />
+          </label>
+        ) : (
+          <VideoForm
+            value={videoValuesFromPost(post)}
+            onChange={(v) => setPost((p) => mergeVideoIntoPost(p, v))}
           />
-        </label>
+        )}
 
         <label className="block">
           <span className="text-sm font-medium text-zinc-700">Programado</span>
@@ -703,10 +783,10 @@ export function PostDetailForm({ initialPost }: Props) {
           />
         </label>
 
-        {post.format === "reel" ? (
+        {isVideoPostFormat(post.format) ? (
           <label className="block">
             <span className="text-sm font-medium text-zinc-700">
-              Guion / brief del reel
+              Guion / brief del video
             </span>
             <p className="mt-0.5 text-xs text-zinc-500">
               Lo genera la IA para producción; las variantes de imagen sirven como referencia de
