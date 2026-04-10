@@ -420,7 +420,11 @@ export function PostDetailForm({ initialPost }: Props) {
         );
       }
       setPost(json.post as Post);
-      setMessage("Guardado");
+      setMessage(
+        json.video_columns_missing ?
+          "Guardado sin metadatos de video: en Supabase → SQL Editor ejecutá supabase/manual/apply_posts_video_and_brief_columns.sql y volvé a guardar para persistir tipo, tono, duración y categoría de video."
+        : "Guardado",
+      );
     } catch (er) {
       setMessage(er instanceof Error ? er.message : "Error");
     } finally {

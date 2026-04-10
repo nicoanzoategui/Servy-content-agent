@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { parsePostCreateBody } from "@/lib/posts/validate";
+import {
+  isPostgrestVideoSchemaCacheError,
+  omitPostsVideoSchemaFields,
+} from "@/lib/supabase/posts-video-schema-fallback";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Post } from "@/types";
 
@@ -79,24 +83,57 @@ export async function POST(request: Request) {
       insert.video_category = parsed.data.video_category;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("posts")
       .insert(insert)
       .select("*")
       .single();
 
+    let videoColumnsMissing = false;
+    if (
+      error &&
+      isPostgrestVideoSchemaCacheError(error.message) &&
+      isVideo
+    ) {
+      const slim = omitPostsVideoSchemaFields(insert);
+      const retry = await supabase
+        .from("posts")
+        .insert(slim)
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+      if (!error && data) {
+        videoColumnsMissing = true;
+        console.warn(
+          "POST /api/posts: columnas video_* ausentes; insert parcial. SQL: supabase/manual/apply_posts_video_and_brief_columns.sql",
+        );
+      }
+    }
+
     if (error) {
       console.error("POST /api/posts insert", error);
+      const msg = typeof error.message === "string" ? error.message : "";
+      const migrationHint =
+        isPostgrestVideoSchemaCacheError(msg) ?
+          " En Supabase → SQL Editor: supabase/manual/apply_posts_video_and_brief_columns.sql"
+        : "";
       return NextResponse.json(
         {
           error: "No se pudo crear el post",
-          details: error.message,
+          details: msg ? `${msg}${migrationHint}` : undefined,
         },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ post: data as Post }, { status: 201 });
+    return NextResponse.json(
+      {
+        post: data as Post,
+        ...(videoColumnsMissing ? { video_columns_missing: true } : {}),
+      },
+      { status: 201 },
+    );
   } catch (e) {
     console.error(e);
     return NextResponse.json(

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { parsePostPatchBody } from "@/lib/posts/validate";
+import {
+  isPostgrestVideoSchemaCacheError,
+  omitPostsVideoSchemaFields,
+} from "@/lib/supabase/posts-video-schema-fallback";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { Post } from "@/types";
 
@@ -58,15 +62,37 @@ export async function PATCH(request: Request, { params }: Params) {
       .maybeSingle();
 
     if (error) {
+      const msg = typeof error.message === "string" ? error.message : "";
+      if (isPostgrestVideoSchemaCacheError(msg)) {
+        const slim = omitPostsVideoSchemaFields(parsed.data);
+        if (Object.keys(slim).length > 0) {
+          const retry = await supabase
+            .from("posts")
+            .update(slim)
+            .eq("id", params.id)
+            .select("*")
+            .maybeSingle();
+          if (!retry.error && retry.data) {
+            console.warn(
+              "posts PATCH: columnas video_* ausentes en BD; guardado parcial. Ejecutá supabase/manual/apply_posts_video_and_brief_columns.sql en SQL Editor.",
+            );
+            return NextResponse.json({
+              post: retry.data as Post,
+              video_columns_missing: true,
+            });
+          }
+        }
+      }
       console.error("posts PATCH supabase:", error);
-      const hint =
-        typeof error.message === "string" && error.message.trim() ?
-          error.message.trim()
+      const hint = msg.trim();
+      const migrationHint =
+        isPostgrestVideoSchemaCacheError(msg) ?
+          " En Supabase → SQL Editor ejecutá el archivo supabase/manual/apply_posts_video_and_brief_columns.sql (o supabase db push)."
         : "";
       return NextResponse.json(
         {
           error: "No se pudo actualizar el post",
-          ...(hint ? { details: hint } : {}),
+          ...(hint ? { details: `${hint}${migrationHint}` } : {}),
         },
         { status: 500 },
       );

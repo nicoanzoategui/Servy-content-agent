@@ -62,6 +62,11 @@ export function usePosts() {
           typeof json.details === "string" ? json.details.trim() : "";
         throw new Error(details ? `${msg}: ${details}` : msg);
       }
+      if (json.video_columns_missing) {
+        console.warn(
+          "[Servy] Post creado sin columnas video_* en la base. Ejecutá supabase/manual/apply_posts_video_and_brief_columns.sql en Supabase SQL Editor.",
+        );
+      }
       await refetch();
       return json.post as Post;
     },
