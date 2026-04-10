@@ -15,6 +15,7 @@ import {
   isVideoPostFormat,
   postHasVideoCreationFields,
 } from "@/lib/posts/video-eligibility";
+import { APPLY_POSTS_VIDEO_COLUMNS_SQL } from "@/lib/supabase/apply-posts-video-columns-sql";
 import type { Post, PostStatus } from "@/types";
 
 const VIDEO_SERVICE_CATS = new Set([
@@ -110,6 +111,8 @@ export function PostDetailForm({ initialPost }: Props) {
   );
   const [regenerateBusy, setRegenerateBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [videoPartialSave, setVideoPartialSave] = useState(false);
+  const [sqlCopyFlash, setSqlCopyFlash] = useState(false);
 
   useEffect(() => {
     setPost(normalizePost(initialPost));
@@ -420,11 +423,8 @@ export function PostDetailForm({ initialPost }: Props) {
         );
       }
       setPost(json.post as Post);
-      setMessage(
-        json.video_columns_missing ?
-          "Guardado sin metadatos de video: en Supabase → SQL Editor ejecutá supabase/manual/apply_posts_video_and_brief_columns.sql y volvé a guardar para persistir tipo, tono, duración y categoría de video."
-        : "Guardado",
-      );
+      setVideoPartialSave(Boolean(json.video_columns_missing));
+      setMessage("Guardado");
     } catch (er) {
       setMessage(er instanceof Error ? er.message : "Error");
     } finally {
@@ -1028,6 +1028,55 @@ export function PostDetailForm({ initialPost }: Props) {
           >
             {message}
           </p>
+        ) : null}
+
+        {videoPartialSave ? (
+          <div
+            className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm"
+            role="status"
+          >
+            <p className="font-semibold text-amber-950">
+              Falta actualizar la base de datos (Supabase)
+            </p>
+            <p className="mt-2 text-amber-900/95">
+              El resto del post se guardó bien, pero{" "}
+              <strong>tipo, tono, duración y categoría de video</strong> no tienen columnas en tu
+              proyecto todavía. En{" "}
+              <strong className="text-amber-950">Supabase → SQL Editor</strong> creá una consulta
+              nueva, pegá el script de abajo, ejecutá <strong>Run</strong>. Si la última línea
+              (<code className="rounded bg-amber-100/80 px-1">notify</code>) da error, ignorala y
+              esperá un minuto. Después volvé a pulsar <strong>Guardar</strong> acá.
+            </p>
+            <pre className="mt-3 max-h-52 overflow-auto rounded-md border border-amber-200/80 bg-zinc-900 p-3 font-mono text-[11px] leading-relaxed text-zinc-100">
+              {APPLY_POSTS_VIDEO_COLUMNS_SQL}
+            </pre>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      await navigator.clipboard.writeText(APPLY_POSTS_VIDEO_COLUMNS_SQL);
+                      setSqlCopyFlash(true);
+                      window.setTimeout(() => setSqlCopyFlash(false), 2000);
+                    } catch {
+                      setMessage("No se pudo copiar; seleccioná el script manualmente");
+                    }
+                  })();
+                }}
+              >
+                {sqlCopyFlash ? "Copiado ✓" : "Copiar SQL"}
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-xs font-medium text-amber-950 hover:bg-amber-100/50"
+                onClick={() => setVideoPartialSave(false)}
+              >
+                Ocultar aviso
+              </button>
+            </div>
+          </div>
         ) : null}
       </form>
     </div>

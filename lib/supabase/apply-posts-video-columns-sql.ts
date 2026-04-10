@@ -1,11 +1,8 @@
--- Ejecutar en Supabase → SQL Editor si aparece:
--- "Could not find the 'video_category' column of 'posts' in the schema cache"
--- (Mismo script en la app: botón "Copiar SQL" tras un guardado parcial.)
---
--- Idempotente: safe repetir. Luego esperá ~1 min o recargá esquema en
--- Project Settings → API → "Reload schema" (si está disponible).
-
-alter table public.posts add column if not exists brief text;
+/**
+ * Mismo contenido ejecutable que supabase/manual/apply_posts_video_and_brief_columns.sql
+ * (sin comentarios), para mostrarlo en la UI y copiar al portapapeles.
+ */
+export const APPLY_POSTS_VIDEO_COLUMNS_SQL = `alter table public.posts add column if not exists brief text;
 alter table public.posts add column if not exists regeneration_feedback text;
 
 alter table public.posts add column if not exists video_url text;
@@ -21,5 +18,4 @@ alter table public.posts
   add constraint posts_target_check
   check (target in ('user', 'provider', 'both', 'founder'));
 
--- Avisar a PostgREST para refrescar el caché de columnas
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema';`;
