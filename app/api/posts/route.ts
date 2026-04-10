@@ -56,23 +56,28 @@ export async function POST(request: Request) {
     }
 
     const supabase = createServiceClient();
-    const insert = {
+
+    const isVideo =
+      parsed.data.format === "reel" || parsed.data.format === "story";
+
+    const insert: Record<string, unknown> = {
       title: parsed.data.title,
       format: parsed.data.format,
       objective: parsed.data.objective,
       target: parsed.data.target,
       service_category:
-        parsed.data.format === "reel" || parsed.data.format === "story" ?
-          parsed.data.video_category
-        : parsed.data.service_category,
+        isVideo ? parsed.data.video_category : parsed.data.service_category,
       scheduled_at: parsed.data.scheduled_at,
       brief: parsed.data.brief,
-      video_content_type: parsed.data.video_content_type,
-      video_tone: parsed.data.video_tone,
-      video_duration_seconds: parsed.data.video_duration_seconds,
-      video_category: parsed.data.video_category,
       ...(parsed.data.status ? { status: parsed.data.status } : {}),
     };
+
+    if (isVideo) {
+      insert.video_content_type = parsed.data.video_content_type;
+      insert.video_tone = parsed.data.video_tone;
+      insert.video_duration_seconds = parsed.data.video_duration_seconds;
+      insert.video_category = parsed.data.video_category;
+    }
 
     const { data, error } = await supabase
       .from("posts")
@@ -81,9 +86,12 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error(error);
+      console.error("POST /api/posts insert", error);
       return NextResponse.json(
-        { error: "No se pudo crear el post" },
+        {
+          error: "No se pudo crear el post",
+          details: error.message,
+        },
         { status: 500 },
       );
     }

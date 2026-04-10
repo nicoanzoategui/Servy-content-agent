@@ -57,7 +57,10 @@ export function usePosts() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json.error ?? "No se pudo crear el post");
+        const msg = json.error ?? "No se pudo crear el post";
+        const details =
+          typeof json.details === "string" ? json.details.trim() : "";
+        throw new Error(details ? `${msg}: ${details}` : msg);
       }
       await refetch();
       return json.post as Post;
